@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>Remi's 53ft - PWA</title>
+    
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        body { margin: 0; background: #111; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: white; touch-action: none; display: flex; flex-direction: column; height: 100vh; }
+        canvas { display: block; background: #1a472a; margin: 0 auto; width: 100vw; height: auto; border-bottom: 2px solid #444; }
+        #dashboard { background: #222; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; border-top: 1px solid #0f0; }
+        #msg { font-size: 14px; color: #fff; text-transform: uppercase; font-weight: bold; height: 20px; text-align: center; }
+        #bottom-stats { width: 100%; display: flex; justify-content: space-around; padding: 5px 0; }
+        .stat-box { background: #000; padding: 5px 15px; border-radius: 5px; border: 1px solid #444; font-family: monospace; font-size: 16px; min-width: 100px; text-align: center; }
+        #model-name { position: absolute; top: 5px; right: 10px; color: #444; font-size: 9px; }
+        #controls { flex-grow: 1; display: flex; justify-content: space-between; align-items: center; background: #111; padding: 0 30px 20px 30px; }
+        .left-controls { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .pedal-box { display: flex; gap: 15px; }
+        #steering-pad { width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 3px solid #555; border-radius: 50%; position: relative; touch-action: none; }
+        #steering-knob { width: 40px; height: 40px; background: #f00; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        .btn { width: 70px; height: 70px; background: #333; border: 2px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: white; user-select: none; }
+        #btnStart { background: #500; border-color: #f00; width: 120px; height: 50px; font-weight: bold; }
+        #btnStart.on { background: #050; border-color: #0f0; }
+    </style>
+</head>
+<body onclick="unlockAudio()">
+
+<div id="model-name">Model: Gemini 2.5 Flash</div>
+<canvas id="gameCanvas"></canvas>
+
+<div id="dashboard">
+    <div id="msg">GITHUB PWA READY</div>
+    <div id="bottom-stats">
+        <div class="stat-box" style="color: #0f0;">TIME: <span id="timer">180</span>s</div>
+        <div class="stat-box" style="color: #ffd700;">VALUE: $<span id="cargo">5000</span></div>
+    </div>
+</div>
+
+<div id="controls">
+    <div class="left-controls">
+        <button id="btnStart" class="btn">START</button>
+        <div class="pedal-box">
+            <div class="btn" id="btnDown">REV</div>
+            <div class="btn" id="btnUp">GAS</div>
+        </div>
+    </div>
+    <div id="steering-pad"><div id="steering-knob"></div></div>
+</div>
+
+<script>
+// UPDATED: Standard GitHub Service Worker Registration
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+}
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const padEl = document.getElementById("steering-pad");
+const knobEl = document.getElementById("steering-knob");
+const startBtn = document.getElementById("btnStart");
+
+canvas.width = 800; canvas.height = 600;
+
+let state = "IDLE", engineOn = false, timeLeft = 180, hasCargo = false;
+let steerInput = 0; 
+let audioCtx, engineOsc, engineGain, reverseOsc, reverseGain, lfo;
+const camera = { x: 0, y: 0 };
+
+function unlockAudio() {
+    if (!audioCtx) initAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    engineOsc = audioCtx.createOscillator(); engineOsc.type = 'triangle'; engineOsc.frequency.setValueAtTime(40, audioCtx.currentTime);
+    engineGain = audioCtx.createGain(); engineGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    lfo = audioCtx.createOscillator(); lfo.type = 'sine'; lfo.frequency.setValueAtTime(7, audioCtx.currentTime); 
+    const lfoGain = audioCtx.createGain(); lfoGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    lfo.connect(lfoGain); lfoGain.connect(engineGain.gain); lfo.start();
+    engineOsc.connect(engineGain); engineGain.connect(audioCtx.destination); engineOsc.start();
+    reverseOsc = audioCtx.createOscillator(); reverseGain = audioCtx.createGain();
+    reverseOsc.type = 'sine'; reverseOsc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+    reverseGain.gain.setValueAtTime(0, audioCtx.currentTime); reverseOsc.connect(reverseGain);
+    reverseGain.connect(audioCtx.destination); reverseOsc.start();
+}
+
+startBtn.addEventListener("touchstart", (e) => {
+    e.preventDefault(); unlockAudio();
+    engineOn = !engineOn;
+    startBtn.classList.toggle("on", engineOn);
+    startBtn.innerText = engineOn ? "STOP" : "START";
+    state = engineOn ? "DRIVING" : "IDLE";
+    engineGain.gain.setTargetAtTime(engineOn ? 0.2 : 0, audioCtx.currentTime, 0.05);
+});
+
+const tractor = { x: 400, y: 300, w: 52, h: 32, angle: 0, speed: 0, accel: 0.165, revAccel: 0.06, maxRevSpeed: -0.9, friction: 0.94, wheelBase: 40, steerAngle: 0 };
+const trailer = { x: 315, y: 300, w: 110, h: 34, angle: 0, distance: 48 }; 
+
+const yard = { x: -200, y: -200, w: 1200, h: 800 };
+const warehouse = { x: 4000, y: -200, w: 800, h: 1000 };
+const otherTrucks = [];
+for(let i=0; i<8; i++) otherTrucks.push({ x: 100 + (i*120), y: -100, color: '#226' });
+const lumberStacks = [];
+for(let i=0; i<10; i++) lumberStacks.push({ x: 200 + Math.random()*800, y: 200 + Math.random()*300 });
+const forklift = { x: 300, y: 400, dir: 1 };
+
+const touch = { up: false, down: false };
+let steeringTouchId = null;
+
+padEl.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    steeringTouchId = t.identifier;
+    updateSteerFromTouch(t);
+});
+
+padEl.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === steeringTouchId) {
+            updateSteerFromTouch(e.changedTouches[i]);
+        }
+    }
+});
+
+padEl.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === steeringTouchId) {
+            steeringTouchId = null; steerInput = 0; knobEl.style.left = "50%";
+        }
+    }
+});
+
+function updateSteerFromTouch(t) {
+    const rect = padEl.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    let offset = (t.clientX - centerX) / (rect.width / 2);
+    steerInput = Math.max(-1, Math.min(1, offset));
+    knobEl.style.left = (50 + steerInput * 40) + "%";
+}
+
+const setupBtn = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); touch[key] = true; });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); touch[key] = false; });
+};
+setupBtn("btnUp", "up"); setupBtn("btnDown", "down");
+
+function update() {
+    if (state === "DRIVING") {
+        if (touch.up && engineOn) tractor.speed += tractor.accel;
+        if (touch.down && engineOn) tractor.speed -= tractor.revAccel;
+        if (tractor.speed > 4.5) tractor.speed = 4.5;
+        if (tractor.speed < tractor.maxRevSpeed) tractor.speed = tractor.maxRevSpeed;
+    } else { tractor.speed *= 0.8; }
+
+    if (engineOn && audioCtx) {
+        const load = Math.abs(tractor.speed);
+        engineOsc.frequency.setTargetAtTime(40 + (load * 25), audioCtx.currentTime, 0.1);
+        lfo.frequency.setTargetAtTime(7 + (load * 15), audioCtx.currentTime, 0.1);
+        reverseGain.gain.setTargetAtTime((tractor.speed < -0.1 && Math.floor(Date.now() / 600) % 2) ? 0.05 : 0, audioCtx.currentTime, 0.05);
+    }
+
+    let targetSteer = steerInput * 0.52; 
+    tractor.steerAngle += (targetSteer - tractor.steerAngle) * 0.15;
+
+    if (Math.abs(tractor.speed) > 0.05) tractor.angle += (tractor.speed / tractor.wheelBase) * Math.tan(tractor.steerAngle);
+    
+    tractor.speed *= tractor.friction;
+    tractor.x += Math.cos(tractor.angle) * tractor.speed;
+    tractor.y += Math.sin(tractor.angle) * tractor.speed;
+
+    let fifthWheelX = tractor.x - Math.cos(tractor.angle) * 12;
+    let fifthWheelY = tractor.y - Math.sin(tractor.angle) * 12;
+
+    let dx = fifthWheelX - trailer.x;
+    let dy = fifthWheelY - trailer.y;
+    let angleToFifthWheel = Math.atan2(dy, dx);
+    
+    let diff = angleToFifthWheel - trailer.angle;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+
+    trailer.angle += diff * Math.abs(tractor.speed / 12);
+    trailer.x = fifthWheelX - Math.cos(trailer.angle) * (trailer.w * 0.05);
+    trailer.y = fifthWheelY - Math.sin(trailer.angle) * (trailer.w * 0.05);
+    
+    camera.x = tractor.x - canvas.width / 2;
+    camera.y = tractor.y - canvas.height / 2;
+
+    forklift.x += forklift.dir * 1.5;
+    if(forklift.x > 800 || forklift.x < 200) forklift.dir *= -1;
+
+    if (!hasCargo && checkRectCollision(trailer, {x:4100, y:200, w:100, h:100})) {
+        hasCargo = true;
+        document.getElementById("msg").innerText = "LUMBER LOADED - HEAD BACK!";
+    }
+    timeLeft -= 1/60;
+    document.getElementById("timer").innerText = Math.ceil(Math.max(0, timeLeft));
+}
+
+function checkRectCollision(obj, r) { return obj.x > r.x && obj.x < r.x + r.w && obj.y > r.y && obj.y < r.y + r.h; }
+
+function draw() {
+    ctx.clearRect(0,0, canvas.width, canvas.height);
+    ctx.fillStyle = "#1a472a"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.save(); 
+    ctx.translate(-camera.x, -camera.y);
+
+    ctx.fillStyle = "#555"; ctx.fillRect(yard.x, yard.y, yard.w, yard.h);
+    ctx.strokeStyle = "#888"; ctx.lineWidth = 10; ctx.strokeRect(yard.x, yard.y, yard.w, yard.h);
+    
+    otherTrucks.forEach(t => {
+        ctx.fillStyle = t.color; ctx.fillRect(t.x, t.y, 40, 80);
+        ctx.fillStyle = "#add8e6"; ctx.fillRect(t.x, t.y+60, 40, 10);
+    });
+
+    lumberStacks.forEach(l => {
+        ctx.fillStyle = "#d2b48c"; ctx.fillRect(l.x, l.y, 60, 30);
+        ctx.strokeStyle = "#8b4513"; ctx.lineWidth = 1; ctx.strokeRect(l.x, l.y, 60, 30);
+    });
+
+    ctx.fillStyle = "#ff0"; ctx.fillRect(forklift.x, forklift.y, 30, 20);
+    ctx.fillStyle = "#000"; ctx.fillRect(forklift.x + (forklift.dir > 0 ? 30 : -10), forklift.y, 10, 20);
+
+    ctx.fillStyle = "#333"; ctx.fillRect(1000, 150, 3000, 100);
+    ctx.fillStyle = "#444"; ctx.fillRect(warehouse.x, warehouse.y, warehouse.w, warehouse.h);
+
+    // Trailer
+    ctx.save(); ctx.translate(trailer.x, trailer.y); ctx.rotate(trailer.angle);
+    ctx.fillStyle = "#eee"; ctx.fillRect(-trailer.w + 10, -trailer.h/2, trailer.w, trailer.h);
+    ctx.fillStyle = "#000"; ctx.fillRect(-trailer.w + 15, -18, 25, 4); ctx.fillRect(-trailer.w + 15, 14, 25, 4); 
+    if(hasCargo) { 
+        ctx.fillStyle = "#d2b48c"; ctx.fillRect(-trailer.w + 20, -12, 80, 24); 
+    }
+    ctx.restore();
+
+    // Tractor
+    ctx.save(); ctx.translate(tractor.x, tractor.y); ctx.rotate(tractor.angle);
+    ctx.fillStyle = "#b00"; ctx.fillRect(-tractor.w/2, -tractor.h/2, tractor.w, tractor.h);
+    ctx.fillStyle = "#add8e6"; ctx.fillRect(tractor.w/2-10, -tractor.h/2+4, 4, tractor.h-8);
+    ctx.restore();
+
+    ctx.restore();
+    requestAnimationFrame(() => { update(); draw(); });
+}
+draw();
+</script>
+</body>
+</html>
