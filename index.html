@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>Remi's 53ft 3D - Cab View</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        body { margin: 0; background: #111; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: white; touch-action: none; display: flex; flex-direction: column; height: 100vh; }
+        #game-container { flex-grow: 1; width: 100%; background: #000; position: relative; }
+        #dashboard { background: #222; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; border-top: 1px solid #0f0; }
+        #msg { font-size: 14px; color: #fff; text-transform: uppercase; font-weight: bold; height: 20px; text-align: center; }
+        #bottom-stats { width: 100%; display: flex; justify-content: space-around; padding: 5px 0; }
+        .stat-box { background: #000; padding: 5px 15px; border-radius: 5px; border: 1px solid #444; font-family: monospace; font-size: 16px; min-width: 100px; text-align: center; }
+        #model-name { position: absolute; top: 5px; right: 10px; color: #444; font-size: 9px; z-index: 10; }
+        #controls { background: #111; padding: 10px 30px 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .left-controls { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .pedal-box { display: flex; gap: 15px; }
+        #steering-pad { width: 120px; height: 120px; background: rgba(255,255,255,0.1); border: 3px solid #555; border-radius: 50%; position: relative; }
+        #steering-knob { width: 35px; height: 35px; background: #f00; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        .btn { width: 65px; height: 65px; background: #333; border: 2px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: white; user-select: none; cursor: pointer; }
+        #btnStart { background: #500; border-color: #f00; width: 110px; height: 45px; font-weight: bold; }
+        #btnStart.on { background: #050; border-color: #0f0; }
+    </style>
+</head>
+<body onclick="unlockAudio()">
+
+<div id="model-name">Model: Gemini 2.5 Flash</div>
+<div id="game-container"></div>
+
+<div id="dashboard">
+    <div id="msg">CAB VIEW ACTIVE</div>
+    <div id="bottom-stats">
+        <div class="stat-box" style="color: #0f0;">TIME: <span id="timer">180</span>s</div>
+        <div class="stat-box" style="color: #ffd700;">VALUE: $<span id="cargo">5000</span></div>
+    </div>
+</div>
+
+<div id="controls">
+    <div class="left-controls">
+        <button id="btnStart" class="btn">START</button>
+        <div class="pedal-box">
+            <div class="btn" id="btnDown">REV</div>
+            <div class="btn" id="btnUp">GAS</div>
+        </div>
+    </div>
+    <div id="steering-pad"><div id="steering-knob"></div></div>
+</div>
+
+<script>
+const container = document.getElementById('game-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / (window.innerHeight * 0.6), 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight * 0.6);
+container.appendChild(renderer.domElement);
+
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(5, 10, 7.5);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040));
+
+const groundGeo = new THREE.PlaneGeometry(2000, 2000);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+// --- TRUCK MODELS ---
+const truckGroup = new THREE.Group();
+const tractorGeo = new THREE.BoxGeometry(2, 1.5, 4);
+const tractorMat = new THREE.MeshStandardMaterial({ color: 0xb00000, side: THREE.DoubleSide });
+const tractorMesh = new THREE.Mesh(tractorGeo, tractorMat);
+tractorMesh.position.y = 0.75;
+truckGroup.add(tractorMesh);
+
+// FIXED: Added a simple dashboard/hood interior so cab view feels real
+const dashGeo = new THREE.BoxGeometry(1.8, 0.5, 0.5);
+const dashMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+const dashMesh = new THREE.Mesh(dashGeo, dashMat);
+dashMesh.position.set(0, 1.1, 1.6);
+truckGroup.add(dashMesh);
+
+scene.add(truckGroup);
+
+const trailerGroup = new THREE.Group();
+const trailerGeo = new THREE.BoxGeometry(2.2, 2.5, 8);
+const trailerMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+const trailerMesh = new THREE.Mesh(trailerGeo, trailerMat);
+trailerMesh.position.set(0, 1.25, -4.5);
+trailerGroup.add(trailerMesh);
+scene.add(trailerGroup);
+
+let state = "IDLE", engineOn = false, timeLeft = 180;
+let steerInput = 0;
+const touch = { up: false, down: false };
+const truckData = { x: 0, z: 0, angle: 0, speed: 0, friction: 0.96, accel: 0.01, revAccel: 0.005 };
+const trailerData = { angle: 0 };
+
+const startBtn = document.getElementById("btnStart");
+const startEngine = () => {
+    engineOn = !engineOn;
+    startBtn.classList.toggle("on", engineOn);
+    startBtn.innerText = engineOn ? "STOP" : "START";
+    state = engineOn ? "DRIVING" : "IDLE";
+};
+startBtn.addEventListener("click", startEngine);
+startBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startEngine(); });
+
+const setupBtn = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener("mousedown", () => touch[key] = true);
+    el.addEventListener("mouseup", () => touch[key] = false);
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); touch[key] = true; });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); touch[key] = false; });
+};
+setupBtn("btnUp", "up"); setupBtn("btnDown", "down");
+
+window.addEventListener("keydown", (e) => {
+    if(e.key === "w") touch.up = true;
+    if(e.key === "s") touch.down = true;
+    if(e.key === "a") steerInput = 1;
+    if(e.key === "d") steerInput = -1;
+});
+window.addEventListener("keyup", (e) => {
+    if(e.key === "w") touch.up = false;
+    if(e.key === "s") touch.down = false;
+    if(e.key === "a" || e.key === "d") steerInput = 0;
+});
+
+const padEl = document.getElementById("steering-pad");
+const knobEl = document.getElementById("steering-knob");
+padEl.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const rect = padEl.getBoundingClientRect();
+    let offset = (t.clientX - (rect.left + rect.width/2)) / (rect.width/2);
+    steerInput = -Math.max(-1, Math.min(1, offset));
+    knobEl.style.left = (50 - steerInput * 40) + "%";
+});
+padEl.addEventListener("touchend", () => { steerInput = 0; knobEl.style.left = "50%"; });
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    if (state === "DRIVING") {
+        if (touch.up && engineOn) truckData.speed += truckData.accel;
+        if (touch.down && engineOn) truckData.speed -= truckData.revAccel;
+    }
+    
+    truckData.speed *= truckData.friction;
+    truckData.angle += steerInput * (truckData.speed * 1.5);
+    
+    truckData.x += Math.sin(truckData.angle) * truckData.speed;
+    truckData.z += Math.cos(truckData.angle) * truckData.speed;
+
+    truckGroup.position.set(truckData.x, 0, truckData.z);
+    truckGroup.rotation.y = truckData.angle;
+
+    const dx = truckGroup.position.x - trailerGroup.position.x;
+    const dz = truckGroup.position.z - trailerGroup.position.z;
+    trailerData.angle = Math.atan2(dx, dz);
+    
+    const dist = 5; 
+    trailerGroup.position.x = truckGroup.position.x - Math.sin(trailerData.angle) * dist;
+    trailerGroup.position.z = truckGroup.position.z - Math.cos(trailerData.angle) * dist;
+    trailerGroup.rotation.y = trailerData.angle;
+
+    // FIXED: Camera now sits inside the cab (First-Person View)
+    camera.position.x = truckData.x + Math.sin(truckData.angle) * 0.5;
+    camera.position.z = truckData.z + Math.cos(truckData.angle) * 0.5;
+    camera.position.y = 1.4; // Height of the driver's eyes
+    
+    // UPDATED: Camera looks forward through the windshield
+    const lookAtX = truckData.x + Math.sin(truckData.angle) * 10;
+    const lookAtZ = truckData.z + Math.cos(truckData.angle) * 10;
+    camera.lookAt(lookAtX, 1.2, lookAtZ);
+
+    renderer.render(scene, camera);
+    
+    timeLeft -= 1/60;
+    document.getElementById("timer").innerText = Math.ceil(Math.max(0, timeLeft));
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / (window.innerHeight * 0.6);
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight * 0.6);
+});
+
+animate();
+function unlockAudio() {}
+</script>
+</body>
+</html>
