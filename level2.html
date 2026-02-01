@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remi's Semi - Level 2: Customer Delivery</title>
+    <style>
+        body { margin: 0; background: #1a472a; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: white; touch-action: none; height: 100vh; width: 100vw; }
+        canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+        #gameCanvas { z-index: 1; }
+        
+        #dashboard { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 10; pointer-events: none; text-align: center; width: 100%; }
+        #msg { font-size: 20px; color: #ffd700; text-shadow: 2px 2px #000; font-weight: bold; margin-bottom: 5px; background: rgba(0,0,0,0.5); padding: 5px 20px; border-radius: 20px; white-space: nowrap; }
+        #bottom-stats { display: flex; justify-content: center; gap: 20px; margin-top: 5px; }
+        .stat-box { background: rgba(0,0,0,0.7); padding: 5px 15px; border-radius: 5px; border: 1px solid #444; font-family: monospace; font-size: 18px; }
+        #model-name { position: absolute; top: 5px; right: 10px; color: rgba(255,255,255,0.3); font-size: 10px; z-index: 10; }
+        
+        #controls-legend { position: absolute; top: 130px; left: 15px; z-index: 20; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid #888; font-size: 12px; line-height: 1.6; pointer-events: none; }
+        #controls-legend h4 { margin: 0 0 5px 0; color: #ffd700; text-decoration: underline; }
+        .key-row { display: flex; justify-content: space-between; gap: 15px; }
+        .key-code { color: #0f0; font-family: monospace; font-weight: bold; text-align: right; }
+
+        #power-display { position: absolute; top: 15px; left: 15px; z-index: 20; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; border: 1px solid #555; pointer-events: none; min-width: 100px; }
+        #power-display label { display: block; font-size: 12px; margin-bottom: 5px; color: #ffd700; font-weight: bold; }
+        #pwrValue { font-family: monospace; font-size: 20px; color: #0f0; }
+
+        #score-display { position: absolute; top: 15px; right: 15px; z-index: 20; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; border: 1px solid #0f0; pointer-events: none; display: flex; gap: 15px; }
+        #score-display .stat-group { text-align: left; }
+        #score-display label { display: block; font-size: 10px; color: #0f0; font-weight: bold; }
+        .ui-val { font-family: monospace; font-size: 18px; color: #fff; }
+
+        #controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 40px; box-sizing: border-box; z-index: 10; pointer-events: none; }
+        .left-controls { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; pointer-events: auto; }
+        .pedal-box { display: flex; gap: 10px; margin-top: 5px; }
+        #steering-pad { width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 3px solid #555; border-radius: 50%; position: relative; touch-action: none; pointer-events: auto; margin-right: 20px; }
+        #steering-knob { width: 40px; height: 40px; background: #f00; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        .btn { width: 75px; height: 65px; background: rgba(51,51,51,0.8); border: 2px solid #555; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; user-select: none; pointer-events: auto; }
+        #btnStart { background: rgba(80,0,0,0.8); border-color: #f00; width: 100px; height: 45px; font-weight: bold; }
+        #btnStart.on { background: rgba(0,80,0,0.8); border-color: #0f0; }
+        #btnDrop { background: rgba(200, 100, 0, 0.8); border-color: #ffaa00; font-weight: bold; width: 100px; height: 45px; }
+    </style>
+</head>
+<body onclick="unlockAudio()">
+
+<div id="model-name">Model: Gemini 3 Flash</div>
+
+<div id="power-display">
+    <label>TRUCK POWER (P/L)</label>
+    <div id="pwrValue">LEVEL 2.0</div>
+</div>
+
+<div id="controls-legend">
+    <h4>LEVEL 2: CUSTOMER DELIVERY</h4>
+    <div class="key-row"><span>GAS/REV:</span> <span class="key-code">W,S / ↑,↓</span></div>
+    <div class="key-row"><span>STEER:</span> <span class="key-code">A,D / ←,→</span></div>
+    <div class="key-row"><span>DROP/HOOK:</span> <span class="key-code">K</span></div>
+</div>
+
+<div id="score-display">
+    <div class="stat-group">
+        <label>MISSION</label>
+        <div class="ui-val">DELIVERY</div>
+    </div>
+    <div class="stat-group">
+        <label>TIME</label>
+        <div id="timeDisplay" class="ui-val">0.0s</div>
+    </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="dashboard">
+    <div id="msg">LEVEL 2: DELIVER THE LUMBER TO THE CUSTOMER YARD</div>
+    <div id="bottom-stats">
+        <div class="stat-box" style="color: #0f0;">TYPE: <span id="trailerType">FLATDECK</span></div>
+        <div class="stat-box" style="color: #ffd700;">ATTACHED: <span id="attachStatus">YES</span></div>
+    </div>
+</div>
+
+<div id="controls">
+    <div class="left-controls">
+        <div style="display:flex; gap:10px;">
+            <button id="btnStart" class="btn">START</button>
+            <button id="btnDrop" class="btn">DROP/HOOK</button>
+        </div>
+        <div class="pedal-box">
+            <div class="btn" id="btnDown">REV</div>
+            <div class="btn" id="btnUp">GAS</div>
+        </div>
+    </div>
+    <div id="steering-pad"><div id="steering-knob"></div></div>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const padEl = document.getElementById("steering-pad");
+const knobEl = document.getElementById("steering-knob");
+const startBtn = document.getElementById("btnStart");
+const dropBtn = document.getElementById("btnDrop");
+const gasBtn = document.getElementById("btnUp");
+const revBtn = document.getElementById("btnDown");
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+let state = "IDLE", engineOn = false, activeTrailer = null;
+let steerInput = 0, audioCtx, engineOsc, engineGain;
+const camera = { x: 0, y: 0 };
+let levelTimer = 0, levelComplete = false;
+let truckBroken = false, serviceTruckActive = false;
+
+const tractor = { x: 5000, y: 925, w: 50, h: 30, angle: 0, speed: 0, accel: 0.18, friction: 0.94, wheelBase: 45, steerAngle: 0 };
+const serviceTruck = { x: 4000, y: 925, active: false, arrived: false, leaving: false };
+
+let allTrailers = [
+    { x: 4965, y: 925, w: 180, h: 36, angle: 0, type: 'flatdeck', loadCount: 4 }
+];
+activeTrailer = allTrailers[0];
+
+const roadY = 850;
+const pulloutX = 6100;
+
+const customerYard = { x: 9000, y: 150, w: 2000, h: 600 };
+const customerReceiving = { x: 10500, y: 300, w: 400, h: 250 };
+const forklift = { x: 10650, y: 350, w: 40, h: 25 };
+
+const customerCars = [
+    {x: 9200, y: 550, color: "blue"}, {x: 9300, y: 550, color: "red"},
+    {x: 9400, y: 550, color: "silver"}, {x: 9500, y: 550, color: "black"},
+    {x: 10800, y: 200, color: "white"}, {x: 10900, y: 200, color: "darkgreen"}
+];
+
+const pedestrians = [
+    {x: 9100, y: 250, targetX: 9800, speed: 1.2, dir: 1},
+    {x: 9500, y: 400, targetX: 10200, speed: 0.8, dir: -1},
+    {x: 10600, y: 300, targetX: 10900, speed: 1.5, dir: 1},
+    {x: 9200, y: 300, targetX: 9400, speed: 1.0, dir: 1}
+];
+
+function unlockAudio() { if (!audioCtx) initAudio(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+// FIXED: Restored original deep engine sound (removed buzzer effect)
+function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    engineOsc = audioCtx.createOscillator(); 
+    engineOsc.type = 'triangle'; // Smoother rumble
+    engineOsc.frequency.setValueAtTime(45, audioCtx.currentTime); 
+    engineGain = audioCtx.createGain(); 
+    engineGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    engineOsc.connect(engineGain); 
+    engineGain.connect(audioCtx.destination); 
+    engineOsc.start();
+}
+
+startBtn.onclick = () => { 
+    unlockAudio(); 
+    engineOn = !engineOn; 
+    startBtn.classList.toggle("on", engineOn); 
+    startBtn.innerText = engineOn ? "STOP" : "START"; 
+    state = engineOn ? "DRIVING" : "IDLE"; 
+    if(audioCtx) engineGain.gain.setTargetAtTime(engineOn ? 0.3 : 0, audioCtx.currentTime, 0.2); 
+};
+
+dropBtn.onclick = () => { toggleTrailer(); };
+
+const touch = { up: false, down: false, left: false, right: false };
+
+// FIXED: Speed button (GAS/REV) responsiveness
+gasBtn.onpointerdown = (e) => { e.preventDefault(); touch.up = true; };
+gasBtn.onpointerup = (e) => { e.preventDefault(); touch.up = false; };
+gasBtn.onpointerleave = (e) => { e.preventDefault(); touch.up = false; };
+revBtn.onpointerdown = (e) => { e.preventDefault(); touch.down = true; };
+revBtn.onpointerup = (e) => { e.preventDefault(); touch.down = false; };
+revBtn.onpointerleave = (e) => { e.preventDefault(); touch.down = false; };
+
+window.onkeydown = (e) => {
+    if(e.key === "w" || e.key === "ArrowUp") touch.up = true; 
+    if(e.key === "s" || e.key === "ArrowDown") touch.down = true;
+    if(e.key === "a" || e.key === "ArrowLeft") touch.left = true; 
+    if(e.key === "d" || e.key === "ArrowRight") touch.right = true;
+    if(e.key.toLowerCase() === "k") toggleTrailer();
+};
+window.onkeyup = (e) => { 
+    if(e.key === "w" || e.key === "ArrowUp") touch.up = false; 
+    if(e.key === "s" || e.key === "ArrowDown") touch.down = false; 
+    if(e.key === "a" || e.key === "ArrowLeft") touch.left = false; 
+    if(e.key === "d" || e.key === "ArrowRight") touch.right = false; 
+};
+
+function toggleTrailer() {
+    if (activeTrailer) { activeTrailer = null; document.getElementById('attachStatus').innerText = "NO"; } 
+    else {
+        let fWX = tractor.x - Math.cos(tractor.angle) * 15;
+        let fWY = tractor.y - Math.sin(tractor.angle) * 15;
+        let found = allTrailers.find(t => Math.hypot(fWX - (t.x + Math.cos(t.angle)*(t.w*0.1)), fWY - (t.y + Math.sin(t.angle)*(t.w*0.1))) < 80);
+        if (found) { activeTrailer = found; document.getElementById('attachStatus').innerText = "YES"; }
+    }
+}
+
+function update() {
+    if (levelComplete) return;
+
+    if (engineOn && !truckBroken) {
+        levelTimer += 1/60;
+        document.getElementById('timeDisplay').innerText = levelTimer.toFixed(1) + "s";
+        
+        // Dynamic sound pitch based on speed
+        if(audioCtx) engineOsc.frequency.setTargetAtTime(45 + (Math.abs(tractor.speed) * 10), audioCtx.currentTime, 0.1);
+    }
+
+    if (!truckBroken && !serviceTruck.arrived && tractor.x > 6000 && !serviceTruck.leaving) {
+        truckBroken = true; serviceTruck.active = true;
+        document.getElementById('msg').innerText = "ENGINE FAILURE! STEERING TO PULLOUT...";
+        document.getElementById('msg').style.color = "#ff4444";
+    }
+
+    if (truckBroken && !serviceTruck.arrived) {
+        let targetY = 1060; let targetX = 6450;
+        if (tractor.y < targetY) tractor.y += 1.8;
+        if (tractor.x < targetX) tractor.x += 2.2;
+        tractor.speed = 0; tractor.angle = 0;
+    }
+
+    if (serviceTruck.active && !serviceTruck.arrived) {
+        serviceTruck.x += 4; serviceTruck.y = tractor.y - 35; 
+        if (serviceTruck.x >= tractor.x - 10) {
+            serviceTruck.arrived = true;
+            document.getElementById('msg').innerText = "REPAIRING... PLEASE WAIT 20S";
+            setTimeout(() => {
+                truckBroken = false; serviceTruck.leaving = true; 
+                document.getElementById('msg').innerText = "FIXED! PROCEED TO CUSTOMER YARD";
+                document.getElementById('msg').style.color = "#0f0";
+            }, 20000); 
+        }
+    }
+
+    if (serviceTruck.leaving) {
+        serviceTruck.x += 6; 
+        if (serviceTruck.x > camera.x + canvas.width + 500) { serviceTruck.active = false; serviceTruck.leaving = false; }
+    }
+
+    if (!truckBroken) {
+        if(touch.left) steerInput = -1; else if(touch.right) steerInput = 1; else steerInput = 0;
+        tractor.steerAngle += (steerInput * 0.52 - tractor.steerAngle) * 0.2;
+        
+        // FIXED: Re-checked speed button logic
+        if (engineOn) { 
+            if (touch.up) tractor.speed += tractor.accel; 
+            if (touch.down) tractor.speed -= (tractor.accel * 0.8); 
+        }
+        tractor.speed *= tractor.friction;
+        tractor.angle += (tractor.speed / 45) * Math.tan(tractor.steerAngle);
+        tractor.x += Math.cos(tractor.angle) * tractor.speed;
+        tractor.y += Math.sin(tractor.angle) * tractor.speed;
+    }
+
+    if (activeTrailer) {
+        let fWX = tractor.x - Math.cos(tractor.angle) * 15;
+        let fWY = tractor.y - Math.sin(tractor.angle) * 15;
+        let diff = Math.atan2(fWY - activeTrailer.y, fWX - activeTrailer.x) - activeTrailer.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
+        activeTrailer.angle += diff * Math.abs(tractor.speed / 12);
+        activeTrailer.x = fWX - Math.cos(activeTrailer.angle) * (activeTrailer.w * 0.1);
+        activeTrailer.y = fWY - Math.sin(activeTrailer.angle) * (activeTrailer.w * 0.1);
+
+        if (activeTrailer.loadCount === 4 && activeTrailer.x > customerReceiving.x && activeTrailer.x < customerReceiving.x + customerReceiving.w && activeTrailer.y > customerReceiving.y && activeTrailer.y < customerReceiving.y + customerReceiving.h && Math.abs(tractor.speed) < 0.2) {
+             activeTrailer.loadCount = 3;
+             document.getElementById('msg').innerText = "ONE LIFT UNLOADED! 3 LEFT FOR NEXT CUSTOMERS";
+             document.getElementById('msg').style.color = "#0f0";
+             levelComplete = true;
+        }
+    }
+
+    pedestrians.forEach(p => { p.x += p.speed * p.dir; if (p.x > p.targetX || p.x < p.targetX - 700) p.dir *= -1; });
+    camera.x = tractor.x - canvas.width / 2; camera.y = tractor.y - canvas.height / 2;
+}
+
+function drawGuidance() {
+    ctx.fillStyle = "rgba(50, 255, 50, 0.7)";
+    for (let i = 0; i < 20; i++) {
+        let ax = 5200 + (i * 300);
+        if (ax < customerYard.x + 150) {
+            let ay = roadY + 75;
+            ctx.beginPath(); ctx.moveTo(ax, ay - 10); ctx.lineTo(ax + 30, ay); ctx.lineTo(ax, ay + 10); ctx.fill();
+        }
+    }
+    ctx.strokeStyle = "rgba(0, 255, 0, 0.9)";
+    ctx.lineWidth = 12; ctx.setLineDash([20, 15]); ctx.beginPath();
+    ctx.moveTo(customerYard.x + 175, roadY); ctx.lineTo(customerYard.x + 175, customerYard.y + 350); ctx.lineTo(customerReceiving.x - 50, customerYard.y + 350);
+    ctx.stroke(); ctx.setLineDash([]);
+    for (let j = 0; j < 5; j++) {
+        let yx = customerYard.x + 400 + (j * 350); let yy = customerYard.y + 350;
+        if (yx < customerReceiving.x) { ctx.beginPath(); ctx.moveTo(yx, yy - 20); ctx.lineTo(yx + 50, yy); ctx.lineTo(yx, yy + 20); ctx.fill(); }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0,0, canvas.width, canvas.height);
+    ctx.save(); ctx.translate(-camera.x, -camera.y);
+
+    ctx.fillStyle = "#333"; ctx.fillRect(4000, roadY, 10000, 150);
+    ctx.fillStyle = "#444"; ctx.fillRect(pulloutX, roadY + 150, 600, 150); 
+    ctx.strokeStyle = "#ffff00"; ctx.setLineDash([40, 40]); ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(4000, roadY + 75); ctx.lineTo(14000, roadY + 75); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.fillStyle = "#4a4a4a"; ctx.fillRect(customerYard.x, customerYard.y, customerYard.w, customerYard.h);
+    ctx.fillStyle = "#333"; ctx.fillRect(customerYard.x + 100, roadY - 100, 150, 100); 
+    ctx.fillStyle = "#2c3e50"; ctx.fillRect(customerYard.x + 400, customerYard.y + 50, 600, 200);
+    ctx.fillStyle = "white"; ctx.font = "bold 20px Arial"; ctx.fillText("CUSTOMER BUILDING", customerYard.x + 550, customerYard.y + 160);
+
+    ctx.fillStyle = "#8B4513";
+    for(let row = 0; row < 2; row++) {
+        for(let col = 0; col < 8; col++) {
+            ctx.fillRect(customerYard.x + 1100 + (col * 50), customerYard.y + 50 + (row * 60), 40, 40);
+            ctx.strokeStyle = "#5D2906"; ctx.lineWidth = 2;
+            ctx.strokeRect(customerYard.x + 1100 + (col * 50), customerYard.y + 50 + (row * 60), 40, 40);
+        }
+    }
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)"; ctx.fillRect(customerReceiving.x, customerReceiving.y, customerReceiving.w, customerReceiving.h);
+    ctx.strokeStyle = "#ffd700"; ctx.setLineDash([10, 10]); ctx.lineWidth = 5; ctx.strokeRect(customerReceiving.x, customerReceiving.y, customerReceiving.w, customerReceiving.h); ctx.setLineDash([]);
+
+    drawGuidance();
+
+    ctx.save(); ctx.translate(forklift.x, forklift.y); ctx.fillStyle = "#e67e22"; ctx.fillRect(0, 0, 30, 25); ctx.restore();
+    customerCars.forEach(c => { ctx.fillStyle = c.color; ctx.fillRect(c.x, c.y, 45, 22); });
+    pedestrians.forEach(p => { ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI*2); ctx.fill(); });
+
+    if (serviceTruck.active || serviceTruck.leaving) {
+        ctx.save(); ctx.translate(serviceTruck.x, serviceTruck.y); ctx.fillStyle = "#f1c40f"; ctx.fillRect(-30, -15, 40, 30); ctx.restore();
+    }
+
+    allTrailers.forEach(t => {
+        ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.angle);
+        ctx.fillStyle = "#222"; ctx.fillRect(-t.w, -t.h/2, t.w, t.h);
+        ctx.fillStyle = "#8B4513";
+        for(let i = 0; i < t.loadCount; i++) { ctx.fillRect(-t.w + 10 + (i * 42), -12, 38, 24); }
+        ctx.restore();
+    });
+
+    ctx.save(); ctx.translate(tractor.x, tractor.y); ctx.rotate(tractor.angle);
+    ctx.fillStyle = "#e00"; 
+    ctx.fillRect(-tractor.w/2, -tractor.h/2, tractor.w, tractor.h);
+    ctx.fillStyle = "#fff"; 
+    ctx.fillRect(tractor.w/2 - 14, -tractor.h/2, 4, tractor.h);
+    ctx.restore();
+
+    ctx.restore();
+    requestAnimationFrame(() => { update(); draw(); });
+}
+draw();
+</script>
+</body>
+</html>

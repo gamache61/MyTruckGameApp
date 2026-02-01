@@ -1,12 +1,11 @@
-// UPDATED: Version v2.0 to force the jump from 2D to 3D graphics
-const CACHE_NAME = 'remi-truck-3d-v2.0';
+// UPDATED: Version v3.0 to support 3D Mirrors and Pro Physics
+const CACHE_NAME = 'remi-truck-3d-v3.0';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json'
 ];
 
-// Install the new 3D assets
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -15,7 +14,7 @@ self.addEventListener('install', (e) => {
   );
 });
 
-// FIXED: This part clears out the old 2D game files automatically
+// FIXED: Clears old 2D cache versions so the 3D view works immediately
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
