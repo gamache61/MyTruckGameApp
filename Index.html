@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trucking Mission</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+
+        #startup-page {
+            width: 90%;
+            max-width: 400px;
+            background: #262626;
+            border: 3px solid #ffd700;
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        h1 {
+            color: #ffd700;
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+
+        .mission-desc {
+            font-size: 14px;
+            color: #bbb;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .stat-box {
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-label { color: #4CAF50; font-size: 12px; font-weight: bold; }
+        .stat-value { font-size: 28px; margin-top: 5px; }
+
+        .power-section {
+            background: #1f1f1f;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .power-label { color: #ffd700; font-size: 14px; font-weight: bold; }
+        .power-display { color: #39FF14; font-size: 32px; font-family: monospace; margin: 10px 0; }
+        
+        select {
+            background: #262626;
+            color: #39FF14;
+            border: 1px solid #39FF14;
+            padding: 8px;
+            border-radius: 5px;
+            width: 80%;
+        }
+
+        .controls-list {
+            background: #2b2b2b;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .controls-header { 
+            color: #ffd700; 
+            text-align: center; 
+            font-weight: bold; 
+            margin-bottom: 12px; 
+            text-decoration: underline; 
+        }
+
+        .row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .val { color: #39FF14; font-weight: bold; font-family: monospace; }
+
+        .btn-scores {
+            background: #444;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .btn-start {
+            background: #39FF14;
+            color: black;
+            border: none;
+            width: 100%;
+            padding: 18px;
+            margin-top: 15px;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="startup-page">
+        <h1>TRUCKING MISSION</h1>
+        <p class="mission-desc">Drop your box trailer at the main yard, then navigate to the lumber yard to hook and load a flatdeck trailer.</p>
+
+        <div class="stat-box">
+            <div class="stat-label">CURRENT EARNINGS</div>
+            <div class="stat-value">$0</div>
+        </div>
+
+        <div class="power-section">
+            <div class="power-label">TRUCK POWER (P/L)</div>
+            <div class="power-display">LEVEL 2.0</div>
+            <select>
+                <option>Power: 2.0 (Normal)</option>
+            </select>
+        </div>
+
+        <div class="controls-list">
+            <div class="controls-header">TRUCK CONTROLS</div>
+            <div class="row"><span>GAS/REV:</span><span class="val">W,S / ↑,↓</span></div>
+            <div class="row"><span>STEER:</span><span class="val">A,D / ←,→</span></div>
+            <div class="row"><span>DROP/HOOK:</span><span class="val">K</span></div>
+            <div class="row"><span>EDIT MODE:</span><span class="val">E</span></div>
+            <div class="row"><span>POWER:</span><span class="val">P / L</span></div>
+        </div>
+
+        <button class="btn-scores">VIEW SAVED SCORES</button>
+
+        <button class="btn-start" onclick="window.location.href='level1.html'">START DRIVING</button>
+    </div>
+
+</body>
+</html>
