@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remi's Semi - Level 2</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; overflow: hidden; touch-action: none; height: 100vh; width: 100vw; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #model-name { position: absolute; top: 5px; right: 10px; color: rgba(255,255,255,0.3); font-size: 10px; z-index: 10; }
+        #controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 40px; box-sizing: border-box; z-index: 10; pointer-events: none; }
+        .btn { width: 80px; height: 70px; background: rgba(50,50,50,0.8); border: 2px solid #555; border-radius: 12px; color: white; display: flex; align-items: center; justify-content: center; pointer-events: auto; font-family: sans-serif; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="model-name">Model: Gemini 2.5 Flash</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="controls">
+    <div style="display:flex; gap:10px;">
+        <div class="btn" id="btnDown">REV</div>
+        <div class="btn" id="btnUp">GAS</div>
+    </div>
+    <div class="btn" style="border-radius:50%; width:100px; height:100px;" id="steer">STEER</div>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Truck & Trailer Data
+const truck = { x: 180, y: 0, w: 60, h: 30, speed: 0 };
+const trailer = { x: 50, y: 0, w: 120, h: 32 };
+const touch = { up: false, down: false };
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    truck.y = canvas.height / 2;
+    trailer.y = canvas.height / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function update() {
+    if (touch.up) truck.speed += 0.05;
+    if (touch.down) truck.speed -= 0.05;
+    truck.speed *= 0.98; // Friction
+    
+    // Trailer physics following the truck
+    trailer.y += (truck.y - trailer.y) * 0.1;
+    trailer.x = truck.x - 125;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Road
+    ctx.fillStyle = "#333";
+    ctx.fillRect(0, canvas.height/2 - 50, canvas.width, 100);
+    
+    // UPDATED: Trailer (Standard silver hauling unit)
+    ctx.fillStyle = "#888";
+    ctx.fillRect(trailer.x, trailer.y - trailer.h/2, trailer.w, trailer.h);
+    
+    // FIXED: The same Maroon Mack truck from Level 1
+    ctx.fillStyle = "#800000"; 
+    ctx.fillRect(truck.x, truck.y - truck.h/2, truck.w, truck.h);
+    
+    update();
+    requestAnimationFrame(draw);
+}
+
+const setupBtn = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); touch[key] = true; });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); touch[key] = false; });
+};
+setupBtn("btnUp", "up");
+setupBtn("btnDown", "down");
+
+draw();
+</script>
+</body>
+</html>
