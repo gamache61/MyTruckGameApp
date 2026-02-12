@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remi's Semi - Level 3 (Lumber Yard)</title>
+    <style>
+        body { margin: 0; background: #2d613e; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: white; touch-action: none; height: 100vh; width: 100vw; -webkit-user-select: none; user-select: none; }
+        canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+        #model-name { position: absolute; top: 5px; right: 10px; color: rgba(255,255,255,0.3); font-size: 10px; z-index: 20; }
+        #dashboard { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 10; pointer-events: none; text-align: center; width: 100%; }
+        #msg { font-size: 16px; color: #ffd700; text-shadow: 2px 2px #000; font-weight: bold; margin-bottom: 5px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 15px; display: inline-block; width: 94%; line-height: 1.2; box-sizing: border-box; border: 1px solid #444; }
+        #bottom-stats { display: flex; justify-content: space-between; align-items: center; padding: 0 3%; margin-top: 5px; pointer-events: auto; }
+        .stat-box { background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 5px; border: 1px solid #444; font-family: monospace; font-size: 16px; pointer-events: none; }
+        #controls { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 10px; box-sizing: border-box; z-index: 10; pointer-events: none; }
+        .left-controls { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; pointer-events: auto; }
+        .pedal-box { display: flex; gap: 5px; }
+        #steering-pad { width: 110px; height: 110px; background: rgba(0,0,0,0.1); border-radius: 50%; position: absolute; right: 75px; bottom: 60px; touch-action: none; pointer-events: auto; display: flex; align-items: center; justify-content: center; }
+        #steering-wheel { width: 105px; height: 105px; border: 12px solid #1a1a1a; border-radius: 50%; box-sizing: border-box; position: relative; transition: transform 0.1s linear; box-shadow: inset 0 0 10px #000, 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; }
+        .btn { width: 55px; height: 48px; background: rgba(51,51,51,0.8); border: 2px solid #555; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; user-select: none; pointer-events: auto; }
+        #btnStart { background: rgba(80,0,0,0.8); border-color: #f00; height: 32px; font-weight: bold; }
+        #btnStart.on { background: rgba(0,80,0,0.8); border-color: #0f0; }
+        #btnView { height: 32px; font-size: 8px; background: rgba(0, 100, 200, 0.8); }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+<div id="model-name">Model: Gemini 3 Flash</div>
+
+<div id="dashboard">
+    <div id="msg">LEVEL 3: DEPART THE LUMBER YARD</div>
+    <div id="bottom-stats">
+        <div class="stat-box" style="color: #33ccff;">TIME: <span id="timer">00:00</span></div>
+        <div class="stat-box" style="color: #ff3333;">DMG: <span id="damage">0%</span></div>
+        <div class="stat-box" style="color: #ff9900;">DIST: <span id="miles">0.0</span></div>
+    </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="controls">
+    <div class="left-controls">
+        <div class="pedal-box">
+            <div id="btnDown" class="btn">REV</div>
+            <div id="btnUp" class="btn">GAS</div>
+        </div>
+        <div style="display: flex; gap: 4px; margin-top: 4px;">
+            <button id="btnStart" class="btn">START</button>
+            <button id="btnView" class="btn">VIEW</button>
+        </div>
+    </div>
+    <div id="steering-pad"><div id="steering-wheel"></div></div>
+</div>
+
+<script>
+const roadBaseY = 850;
+const siteLocationX = 4000; 
+const roadWidth = 254; 
+const lumberRoadLength = 1200;
+const remoteLumberYard = { x: siteLocationX - 1625, y: roadBaseY + roadWidth + lumberRoadLength, w: 3250, h: 2000 };
+const loadingZone = { x: remoteLumberYard.x + (remoteLumberYard.w/2) - (roadWidth/2), y: remoteLumberYard.y + (remoteLumberYard.h/2) - 400, w: roadWidth, h: 800 };
+
+// SET START POS
+const startX = loadingZone.x + loadingZone.w/2;
+const startY = loadingZone.y + loadingZone.h/2;
+
+const tractor = { x: startX, y: startY, w: 292.5, h: 67.5, angle: -Math.PI/2, speed: 0, accel: 0.05, revAccel: 0.04, friction: 0.98, steerAngle: 0 };
+let activeTrailer = { x: startX, y: startY + 330, w: 417, h: 72, angle: -Math.PI/2 };
+
+const carColors = ["#3498db", "#e74c3c", "#f1c40f", "#ecf0f1", "#95a5a6", "#1abc9c"];
+let parkedCars = [
+    { x: remoteLumberYard.x + 400, y: remoteLumberYard.y + 350, angle: 0, color: carColors[0] },
+    { x: remoteLumberYard.x + 520, y: remoteLumberYard.y + 350, angle: 0, color: carColors[1] },
+    { x: remoteLumberYard.x + 640, y: remoteLumberYard.y + 350, angle: 0, color: carColors[2] }
+];
+
+let lumberStacks = [];
+for(let i=0; i<12; i++) {
+    for(let j=0; j<2; j++) {
+        lumberStacks.push({ x: loadingZone.x - 210 - (j+1)*100, y: loadingZone.y - 220 + i*70, exists: true });
+        lumberStacks.push({ x: loadingZone.x + loadingZone.w + 110 + (j+1)*100, y: loadingZone.y - 220 + i*70, exists: true });
+    }
+}
+
+let engineOn = false; const touch = { up: false, down: false }; let currentZoom = 0.35; 
+const canvas = document.getElementById("gameCanvas"), ctx = canvas.getContext("2d");
+const padEl = document.getElementById("steering-pad"), wheelEl = document.getElementById("steering-wheel"), startBtn = document.getElementById("btnStart");
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+function drawOffice(x, y) {
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = "#8d6e63"; ctx.fillRect(0, 0, 400, 250); 
+    ctx.fillStyle = "#5d4037"; ctx.fillRect(-10, -10, 420, 20); 
+    ctx.fillStyle = "#fff"; ctx.font = "bold 24px Arial"; ctx.fillText("OFFICE", 155, 50);
+    ctx.restore();
+}
+
+function drawLumberYardGround() {
+    ctx.save();
+    ctx.translate(remoteLumberYard.x, remoteLumberYard.y);
+    ctx.fillStyle = "#555"; ctx.fillRect(0, 0, remoteLumberYard.w, remoteLumberYard.h);
+    ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 8;
+    ctx.strokeRect(loadingZone.x - remoteLumberYard.x, loadingZone.y - remoteLumberYard.y, loadingZone.w, loadingZone.h);
+    ctx.restore();
+}
+
+function drawTrailerStatic(x, y, angle) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ctx.fillStyle = "#5d4037"; ctx.fillRect(-activeTrailer.w/2, -activeTrailer.h/2, activeTrailer.w, activeTrailer.h);
+    ctx.fillStyle = "#111"; ctx.fillRect(activeTrailer.w/2 - 80, activeTrailer.h/2, 55, 8); ctx.fillRect(activeTrailer.w/2 - 80, -activeTrailer.h/2 - 8, 55, 8);
+    ctx.restore();
+}
+
+function drawTruckDetailed(x, y, angle) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); 
+    const s = 2.25; ctx.fillStyle = "#111"; ctx.fillRect(-130, -11, 180, 22);
+    ctx.fillStyle = "#800000"; ctx.fillRect(-22, -33, 90, 67); ctx.fillRect(68, -24, 67, 48); 
+    ctx.restore();
+}
+
+function update() {
+    if (engineOn) { if (touch.up) tractor.speed += tractor.accel; if (touch.down) tractor.speed -= tractor.revAccel; }
+    tractor.speed *= tractor.friction;
+    tractor.angle += (tractor.speed / 120) * Math.tan(tractor.steerAngle); 
+    tractor.x += Math.cos(tractor.angle) * tractor.speed; tractor.y += Math.sin(tractor.angle) * tractor.speed;
+    const pX = tractor.x - Math.cos(tractor.angle) * 101.25, pY = tractor.y - Math.sin(tractor.angle) * 101.25;
+    const dx = pX - activeTrailer.x, dy = pY - activeTrailer.y; 
+    activeTrailer.angle = Math.atan2(dy, dx); 
+    activeTrailer.x = pX - Math.cos(activeTrailer.angle) * (activeTrailer.w / 2 - 33.75); 
+    activeTrailer.y = pY - Math.sin(activeTrailer.angle) * (activeTrailer.w / 2 - 33.75); 
+}
+
+function draw() {
+    ctx.clearRect(0,0, canvas.width, canvas.height); 
+    ctx.save(); ctx.translate(canvas.width / 2, canvas.height / 2); ctx.rotate(-tractor.angle - Math.PI/2); ctx.scale(currentZoom, currentZoom); ctx.translate(-tractor.x, -tractor.y);
+    ctx.fillStyle = "#2d613e"; ctx.fillRect(-10000, -10000, 20000, 20000); 
+    drawLumberYardGround();
+    drawOffice(remoteLumberYard.x + 300, remoteLumberYard.y + 100);
+    lumberStacks.forEach(s => { ctx.fillStyle = "#d2b48c"; ctx.fillRect(s.x, s.y, 30, 60); });
+    parkedCars.forEach(car => { ctx.save(); ctx.translate(car.x, car.y); ctx.fillStyle = car.color; ctx.fillRect(-45, -22, 90, 44); ctx.restore(); });
+    drawTruckDetailed(tractor.x, tractor.y, tractor.angle);
+    drawTrailerStatic(activeTrailer.x, activeTrailer.y, activeTrailer.angle);
+    ctx.restore();
+    update(); requestAnimationFrame(draw);
+}
+
+startBtn.onclick = () => { engineOn = !engineOn; startBtn.innerText = engineOn ? "STOP" : "START"; startBtn.classList.toggle("on"); };
+document.getElementById("btnView").onclick = () => { currentZoom = (currentZoom === 0.35 ? 0.15 : 0.35); };
+const upBtn = document.getElementById("btnUp"), downBtn = document.getElementById("btnDown");
+upBtn.onpointerdown = () => touch.up = true; upBtn.onpointerup = () => touch.up = false;
+downBtn.onpointerdown = () => touch.down = true; downBtn.onpointerup = () => touch.down = false;
+padEl.onpointermove = (e) => { if (e.buttons > 0) { const rect = padEl.getBoundingClientRect(); let sInput = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2); tractor.steerAngle = Math.max(-0.8, Math.min(0.8, sInput)); wheelEl.style.transform = `rotate(${sInput * 180}deg)`; } };
+draw();
+</script>
+</body>
+</html>
