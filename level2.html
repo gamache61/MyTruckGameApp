@@ -23,7 +23,7 @@
     </style>
 </head>
 <body>
-    <p id="note" role="status" aria-live="polite">Gravel road meets the main road at 90°. Drag the handle at the junction to adjust the angle.</p>
+    <p id="note" role="status" aria-live="polite">Gravel road meets the main road at 90°. Drag the handle or use Left/Right arrows to adjust the angle.</p>
     <canvas id="scene"></canvas>
     <script>
         // Main road runs horizontally; gravel road rises vertically to meet it at 90°
@@ -43,6 +43,10 @@
         const ctx = canvas.getContext('2d');
         let gravelAngle = defaultGravelAngle; // default: 90° to the main road
         let draggingHandle = false;
+
+        function pivot() {
+            return { x: gravelRoadX, y: mainRoadY - mainRoadWidth / 2 };
+        }
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -81,8 +85,7 @@
             const gravelStartY = endYard.y + endYard.h;
             const gravelEndY = mainRoadY - mainRoadWidth / 2;
             const gravelHeight = gravelEndY - gravelStartY;
-            const pivotX = gravelRoadX;
-            const pivotY = gravelEndY;
+            const { x: pivotX, y: pivotY } = pivot();
 
             ctx.save();
             ctx.translate(pivotX, pivotY);
@@ -124,8 +127,7 @@
 
         function pointerDown(e) {
             const { x, y } = screenToWorld(e.clientX, e.clientY);
-            const pivotX = gravelRoadX;
-            const pivotY = mainRoadY - mainRoadWidth / 2;
+            const { x: pivotX, y: pivotY } = pivot();
             const dx = x - pivotX;
             const dy = y - pivotY;
             if (Math.sqrt(dx * dx + dy * dy) <= handleRadius + handleHitPadding) {
@@ -137,8 +139,7 @@
         function pointerMove(e) {
             if (!draggingHandle) return;
             const { x, y } = screenToWorld(e.clientX, e.clientY);
-            const pivotX = gravelRoadX;
-            const pivotY = mainRoadY - mainRoadWidth / 2;
+            const { x: pivotX, y: pivotY } = pivot();
             gravelAngle = Math.atan2(y - pivotY, x - pivotX);
             draw();
             e.preventDefault();
@@ -151,6 +152,16 @@
         canvas.addEventListener('pointerdown', pointerDown);
         canvas.addEventListener('pointermove', pointerMove);
         window.addEventListener('pointerup', pointerUp);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                gravelAngle -= 0.05;
+                draw();
+            } else if (e.key === 'ArrowRight') {
+                gravelAngle += 0.05;
+                draw();
+            }
+        });
 
         resize();
     </script>
