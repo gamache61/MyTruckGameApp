@@ -7,11 +7,23 @@
     <style>
         body { margin: 0; background: #2d613e; overflow: hidden; touch-action: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        #note { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); color: #ffd700; font-family: 'Segoe UI', sans-serif; font-weight: bold; text-shadow: 2px 2px #000; }
+        #note {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffd700;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            padding: 8px 14px;
+            background: rgba(0, 0, 0, 0.55);
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
-    <div id="note">Gravel road now meets the main road at a 90° angle</div>
+    <div id="note">Gravel road meets the main road at 90°. Drag the handle at the junction to adjust the angle.</div>
     <canvas id="scene"></canvas>
     <script>
         // Main road runs horizontally; gravel road rises vertically to meet it at 90°
@@ -19,10 +31,15 @@
         const mainRoadY = 0;
         const mainRoadWidth = 220;
         const gravelWidth = 140;
+        const markerWidth = 12;
+        const markerHalfWidth = markerWidth / 2;
+        const handleRadius = 16;
         const endYard = { x: gravelRoadX - 900, y: -2800, w: 1800, h: 1800 };
 
         const canvas = document.getElementById('scene');
         const ctx = canvas.getContext('2d');
+        let gravelAngle = -Math.PI / 2; // default: 90° to the main road
+        let draggingHandle = false;
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -57,21 +74,80 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Gravel road (vertical) — ensures a clean 90° junction with the main road
+            // Gravel road — anchored at the junction; angle can be edited via handle drag
             const gravelStartY = endYard.y + endYard.h;
             const gravelEndY = mainRoadY - mainRoadWidth / 2;
+            const gravelHeight = gravelEndY - gravelStartY;
+            const pivotX = gravelRoadX;
+            const pivotY = gravelEndY;
+
+            ctx.save();
+            ctx.translate(pivotX, pivotY);
+            ctx.rotate(gravelAngle + Math.PI / 2); // rotate rectangle so its length points away from main road
             ctx.fillStyle = "#7c6f64";
-            ctx.fillRect(gravelRoadX - gravelWidth / 2, gravelStartY, gravelWidth, gravelEndY - gravelStartY + mainRoadWidth / 2);
+            ctx.fillRect(-gravelWidth / 2, -gravelHeight, gravelWidth, gravelHeight);
             ctx.strokeStyle = "#bfa28a";
             ctx.lineWidth = 6;
-            ctx.strokeRect(gravelRoadX - gravelWidth / 2, gravelStartY, gravelWidth, gravelEndY - gravelStartY + mainRoadWidth / 2);
+            ctx.strokeRect(-gravelWidth / 2, -gravelHeight, gravelWidth, gravelHeight);
+            ctx.restore();
 
             // Simple marker to highlight the perpendicular connection
             ctx.fillStyle = "#ffd700";
-            ctx.fillRect(gravelRoadX - 6, mainRoadY - mainRoadWidth / 2, 12, mainRoadWidth / 2);
+            ctx.fillRect(gravelRoadX - markerHalfWidth, mainRoadY - mainRoadWidth / 2, markerWidth, mainRoadWidth / 2);
+
+            // Handle for editing the gravel road angle
+            ctx.fillStyle = "#00d4ff";
+            ctx.strokeStyle = "#003d66";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(pivotX, pivotY, handleRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "#002233";
+            ctx.font = "bold 18px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("↻", pivotX, pivotY);
 
             ctx.restore();
         }
+
+        function screenToWorld(clientX, clientY) {
+            return {
+                x: clientX - (canvas.width / 2 - gravelRoadX),
+                y: clientY - (canvas.height / 2 - mainRoadY - 200)
+            };
+        }
+
+        function pointerDown(e) {
+            const { x, y } = screenToWorld(e.clientX, e.clientY);
+            const pivotX = gravelRoadX;
+            const pivotY = mainRoadY - mainRoadWidth / 2;
+            const dx = x - pivotX;
+            const dy = y - pivotY;
+            if (Math.sqrt(dx * dx + dy * dy) <= handleRadius + 4) {
+                draggingHandle = true;
+                e.preventDefault();
+            }
+        }
+
+        function pointerMove(e) {
+            if (!draggingHandle) return;
+            const { x, y } = screenToWorld(e.clientX, e.clientY);
+            const pivotX = gravelRoadX;
+            const pivotY = mainRoadY - mainRoadWidth / 2;
+            gravelAngle = Math.atan2(y - pivotY, x - pivotX);
+            draw();
+            e.preventDefault();
+        }
+
+        function pointerUp() {
+            draggingHandle = false;
+        }
+
+        canvas.addEventListener('pointerdown', pointerDown);
+        canvas.addEventListener('pointermove', pointerMove);
+        window.addEventListener('pointerup', pointerUp);
 
         resize();
     </script>
