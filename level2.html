@@ -23,7 +23,7 @@
     </style>
 </head>
 <body>
-    <p id="note" role="status" aria-live="polite">Gravel road meets the main road at 90°. Drag the handle or use Left/Right arrows to adjust the angle.</p>
+    <p id="note" role="status" aria-live="polite" aria-atomic="true">Gravel road meets the main road at 90°. Drag the handle or use Left/Right arrows to adjust the angle.</p>
     <button id="angle-handle-btn" aria-label="Adjust gravel road angle; use left and right arrow keys to change" style="position:absolute; top:50px; left:50%; transform:translateX(-50%); z-index:5; padding:10px 14px; border-radius:8px; border:1px solid #444; background:rgba(0,0,0,0.65); color:#ffd700; font-weight:bold;">Adjust gravel angle</button>
     <canvas id="scene"></canvas>
     <script>
@@ -38,7 +38,7 @@
         const handleHitPadding = 4;
         const verticalViewOffset = 200;
         const defaultGravelAngle = -Math.PI / 2;
-        const angleStep = 0.05; // radians per keyboard increment (~2.86 degrees)
+        const angleStep = 0.05; // radians per keyboard increment (~2.87 degrees)
         const endYard = { x: gravelRoadX - 900, y: -2800, w: 1800, h: 1800 };
 
         const canvas = document.getElementById('scene');
@@ -46,6 +46,11 @@
         const angleHandleBtn = document.getElementById('angle-handle-btn');
         let gravelAngle = defaultGravelAngle; // default: 90° to the main road
         let draggingHandle = false;
+        let lastAnnounce = -Infinity;
+
+        function radiansToDegrees(rad) {
+            return rad * (180 / Math.PI);
+        }
 
         function pivot() {
             return { x: gravelRoadX, y: mainRoadY - mainRoadWidth / 2 };
@@ -120,8 +125,12 @@
 
             ctx.restore();
 
-            const deg = ((gravelAngle * 180) / Math.PI).toFixed(1);
-            document.getElementById('note').textContent = `Gravel road angle: ${deg}°. Drag the handle or use Left/Right arrows to adjust.`;
+            const now = performance.now();
+            if (now - lastAnnounce > 120) {
+                const deg = radiansToDegrees(gravelAngle).toFixed(1);
+                document.getElementById('note').textContent = `Gravel road angle: ${deg}°. Drag the handle or use Left/Right arrows to adjust.`;
+                lastAnnounce = now;
+            }
         }
 
         function screenToWorld(clientX, clientY) {
@@ -177,9 +186,6 @@
             } else if (e.key === 'ArrowRight') {
                 gravelAngle += angleStep;
                 draw();
-                e.preventDefault();
-            } else if (e.key === 'Enter' || e.key === ' ') {
-                draggingHandle = !draggingHandle;
                 e.preventDefault();
             }
         });
