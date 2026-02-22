@@ -23,7 +23,7 @@
     </style>
 </head>
 <body>
-    <div id="note">Gravel road meets the main road at 90°. Drag the handle at the junction to adjust the angle.</div>
+    <p id="note" role="status" aria-live="polite">Gravel road meets the main road at 90°. Drag the handle at the junction to adjust the angle.</p>
     <canvas id="scene"></canvas>
     <script>
         // Main road runs horizontally; gravel road rises vertically to meet it at 90°
@@ -34,11 +34,14 @@
         const markerWidth = 12;
         const markerHalfWidth = markerWidth / 2;
         const handleRadius = 16;
+        const handleHitPadding = 4;
+        const verticalViewOffset = 200;
+        const defaultGravelAngle = -Math.PI / 2;
         const endYard = { x: gravelRoadX - 900, y: -2800, w: 1800, h: 1800 };
 
         const canvas = document.getElementById('scene');
         const ctx = canvas.getContext('2d');
-        let gravelAngle = -Math.PI / 2; // default: 90° to the main road
+        let gravelAngle = defaultGravelAngle; // default: 90° to the main road
         let draggingHandle = false;
 
         function resize() {
@@ -53,7 +56,7 @@
 
             // Center the view around the connection point for clarity
             ctx.save();
-            ctx.translate(canvas.width / 2 - gravelRoadX, canvas.height / 2 - mainRoadY - 200);
+            ctx.translate(canvas.width / 2 - gravelRoadX, canvas.height / 2 - mainRoadY - verticalViewOffset);
 
             // Yard
             ctx.fillStyle = "#555";
@@ -125,7 +128,7 @@
             const pivotY = mainRoadY - mainRoadWidth / 2;
             const dx = x - pivotX;
             const dy = y - pivotY;
-            if (Math.sqrt(dx * dx + dy * dy) <= handleRadius + 4) {
+            if (Math.sqrt(dx * dx + dy * dy) <= handleRadius + handleHitPadding) {
                 draggingHandle = true;
                 e.preventDefault();
             }
