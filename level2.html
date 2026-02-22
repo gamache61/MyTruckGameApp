@@ -118,7 +118,7 @@
         function screenToWorld(clientX, clientY) {
             return {
                 x: clientX - (canvas.width / 2 - gravelRoadX),
-                y: clientY - (canvas.height / 2 - mainRoadY - 200)
+                y: clientY - (canvas.height / 2 - mainRoadY - verticalViewOffset)
             };
         }
 
