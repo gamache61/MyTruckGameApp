@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Remi's Semi - Level 3 Extended</title>
+  <style>
+    body { margin: 0; background: #2d613e; font-family: 'Segoe UI', sans-serif; overflow: hidden; color: white; touch-action: none; height: 100vh; width: 100vw; -webkit-user-select: none; user-select: none;}
+    canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1;}
+    #model-name { position: absolute; top: 5px; right: 10px; color: rgba(255,255,255,0.3); font-size: 10px; z-index: 20;}
+    #dashboard { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 10; pointer-events: none; text-align: center; width: 100%;}
+    #msg-container { width: 94%; display: inline-block; background: rgba(0,0,0,0.85); border: 2px solid #444; border-radius: 15px; padding: 10px; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.5);}
+    #msg-header { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; display: block; text-align: left; padding-left: 5px;}
+    #msg { font-size: 14px; color: #ffd700; text-shadow: 1px 1px #000; font-weight: bold; line-height: 1.3; display: block; text-align: left; padding-left: 5px;}
+    #bottom-stats { display: flex; justify-content: space-between; align-items: center; padding: 0 3%; margin-top: 5px; pointer-events: auto;}
+    .stat-box { background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 5px; border: 1px solid #444; font-family: monospace; font-size: 16px; pointer-events: none;}
+    #gps-screen { position: fixed; top: 140px; left: 50%; transform: translateX(-50%); width: 170px; height: 44px; background: rgba(0,0,0,0.9); border: 2px solid #00ff00; border-radius: 5px; color: #00ff00; font-family: 'Courier New', monospace; font-weight: bold; font-size: 12px; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 0 10px rgba(0,0,0,0.8);}
+    #controls { position: absolute; bottom: 8px; left: 0; width: 100%; display: flex; justify-content: flex-start; align-items: flex-end; padding: 0 6px; box-sizing: border-box; z-index: 10; pointer-events: none;}
+    .left-controls { width: 100%; display: flex; flex-direction: row; gap: 4px; align-items: flex-end; justify-content: space-between; pointer-events: auto;}
+    .pedal-box { width: 100%; display: flex; gap: 4px; justify-content: space-between;}
+    #steering-pad { width: 140px; height: 64px; position: absolute; right: 8px; bottom: 52px; touch-action: none; pointer-events: auto;}
+    #steering-wheel { width: 40px; height: 40px; background: #222; border: 3px solid #666; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 8px rgba(0,0,0,0.6); pointer-events: none;}
+    .btn { width: calc((100vw - 12px - (6 * 4px)) / 7); min-width: 44px; max-width: 64px; height: 32px; background: rgba(51,51,51,0.8); border: 2px solid #555; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 8px; color: white; user-select: none; pointer-events: auto; padding: 0; line-height: 1;}
+    #btnStart { background: rgba(80,0,0,0.8); border-color: #f00; font-weight: bold;}
+    #btnStart.on { background: rgba(0,80,0,0.8); border-color: #0f0;}
+    #btnView { background: rgba(0, 100, 200, 0.8);}
+    #btnLayout { background: rgba(200, 100, 0, 0.8);}
+    #btnSkip { background: rgba(100, 100, 100, 0.8); font-weight: bold;}
+    #btnShift { background: #333; border: 2px solid #0f0; font-weight: bold;}
+    #gearDisplay { font-size: 14px; color: #0f0; text-shadow: 0 0 5px #0f0; line-height: 1;}
+    #shiftLabel { font-size: 7px; color: #aaa; line-height: 1;}
+    #chainPop { display: none; position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); background: #ffd700; color: #000; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 12px; z-index: 100; pointer-events: auto; border: 2px solid #fff; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);}
+  </style>
+</head>
+<body oncontextmenu="return false;">
+<div id="model-name">Model: Gemini 3 Flash</div>
+<div id="dashboard">
+  <div id="msg-container">
+    <span id="msg-header">DISPATCHER (RADIO)</span>
+    <div id="msg">INITIALIZING SYSTEMS...</div>
+  </div>
+  <div id="bottom-stats">
+    <div class="stat-box" style="color:#33ccff;">TIME: <span id="timer">00:00</span></div>
+    <div class="stat-box" style="color:#ff3333;">DMG: <span id="damage">0%</span></div>
+    <div class="stat-box" style="color:#ff9900;">DIST: <span id="miles">0.0</span></div>
+  </div>
+</div>
+<div id="gps-screen">LOADING...</div>
+<div id="chainPop" onpointerdown="installChains()">⚙️ CHAIN AREA ⚙️<br><small>TAP TO TOGGLE</small></div>
+<canvas id="gameCanvas"></canvas>
+<div id="controls">
+  <div class="left-controls">
+    <div class="pedal-box">
+      <div id="btnDown" class="btn">REV</div>
+      <div id="btnUp" class="btn">GAS</div>
+      <div id="btnShift" class="btn"><span id="gearDisplay">1</span><span id="shiftLabel">SHIFT</span></div>
+      <button id="btnStart" class="btn">START</button>
+      <button id="btnView" class="btn">VIEW</button>
+      <button id="btnLayout" class="btn">LAYOUT</button>
+      <button id="btnSkip" class="btn">SKIP</button>
+    </div>
+  </div>
+  <div id="steering-pad"><div id="steering-wheel"></div></div>
+</div>
+
+<script>
+const MILE_UNITS = 5280;
+const EXTRA_UPHILL = 1 * MILE_UNITS;
+const EXTRA_DOWNHILL = 1 * MILE_UNITS;
+const EXTRA_MOUNTAIN_TOTAL = EXTRA_UPHILL + EXTRA_DOWNHILL;
+const TRAILER_WIDTH_8_5FT = 97.75;
+
+const LUMBER_4FT = 46, LUMBER_8FT = 92;
+const LUMBER_LAND_W = LUMBER_8FT, LUMBER_LAND_H = LUMBER_4FT;
+const TRAILER_LUMBER_COLS = 6, TRAILER_LUMBER_ROWS = 2, TRAILER_LUMBER_GAP = 6;
+const TRAILER_PADDING_X = 20, TRAILER_PADDING_Y = 10;
+const HITCH_OFFSET = 140, TRAILER_FRONT_OFFSET = 33.75;
+const TRAILER_STRAP_POS = 0.20, TRAILER_STRAP_COLOR = "#000", TRAILER_STRAP_WIDTH = 4;
+
+const CHAIN_W_FULL = 2875;
+const CHAIN_W_UP   = 1800;
+const CHAIN_H = 230;
+
+const roadBaseY = 850, siteLocationX = 8500, roadWidth = 254, lumberRoadLength = 1200;
+const remoteLumberYard = { x: siteLocationX-1625, y: roadBaseY+roadWidth+lumberRoadLength, w: 3250, h: 4500 };
+const destinationYard  = { x: -8875, y: -2500, w: 3000, h: 3000 };
+const dropOffX = destinationYard.x + destinationYard.w/2;
+const dropOffY = destinationYard.y + destinationYard.h/2;
+
+const towYardInterX  = -11000 - 7500;
+const towYardRoadLen = 2500;
+const hwyY = destinationYard.y - 2528 - (roadWidth * 2);
+const towYard     = { x: towYardInterX-500, y: hwyY-towYardRoadLen-1000, w: 1000, h: 1000 };
+const storageYardInterX = towYardInterX - 5000;
+const storageYard = { x: storageYardInterX-500, y: hwyY+(roadWidth*2)+500, w: 1000, h: 1000 };
+const loadingZone = { x: -8627, y: destinationYard.y+destinationYard.h-1500, w: roadWidth, h: 800 };
+
+const CHAINUP_LEFT_EDGE = 5000;
+const chainUpArea  = { x: CHAINUP_LEFT_EDGE, y: roadBaseY+roadWidth+10, w: CHAIN_W_UP,   h: CHAIN_H };
+const chainOffArea = { x: (2000-EXTRA_MOUNTAIN_TOTAL)-CHAIN_W_FULL-200, y: roadBaseY+roadWidth+10, w: CHAIN_W_FULL, h: CHAIN_H };
+
+const SNOW_FADE_START_X = chainUpArea.x + chainUpArea.w + 250;
+const SNOW_FULL_START_X = 4300;
+const SNOW_END_X = 2000 - EXTRA_MOUNTAIN_TOTAL;
+const ROAD_RIGHT_EXT = EXTRA_UPHILL;
+const ROAD_LEFT_EXT  = EXTRA_DOWNHILL;
+
+const WINDY_START_X = chainOffArea.x - 300;
+const WINDY_END_X   = WINDY_START_X - 6000;
+
+const intersectionX = loadingZone.x + roadWidth/2;
+
+// GPS waypoints
+const WP_CHAINUP_WARN  = chainUpArea.x + chainUpArea.w + 1500;
+const WP_MTN_HWY_WARN  = WINDY_END_X - 1500;
+const WP_MTN_HWY_TURN  = WINDY_END_X - 200;
+const WP_DEST_WARN     = intersectionX + 2000;
+const WP_DEST_TURN     = intersectionX + 400;
+const WP_DEST_ON       = intersectionX - 400;
+
+const WP_SPUR_WARN_Y = roadBaseY + 1500;
+const WP_SPUR_TURN_Y = roadBaseY + 300;
+
+let towState = { pending:false, timer:0, active:false, trucks:[] };
+
+const snowParticles = [];
+for(let i=0;i<220;i++) snowParticles.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,s:Math.random()*3+1,v:Math.random()*2+1});
+function updateSnow(){snowParticles.forEach(p=>{p.y+=p.v;if(p.y>window.innerHeight)p.y=-10;});}
+function getSnowProgressByX(x){
+  if(x>SNOW_FADE_START_X)return 0;
+  if(x<=SNOW_FULL_START_X)return 1;
+  return(SNOW_FADE_START_X-x)/(SNOW_FADE_START_X-SNOW_FULL_START_X);
+}
+
+// FIX 1: Snow opacity reduced so road stays clearly visible
+// Ground snow: max alpha 0.22 (was 0.30+0.68=0.98 — way too opaque)
+function drawGroundSnow(){
+  const p=getSnowProgressByX(tractor.x);if(p<=0)return;
+  ctx.save();
+  ctx.globalAlpha = 0.10 + (0.12 * p);  // max ~0.22 — road fully visible underneath
+  ctx.fillStyle="#ddeeff";
+  ctx.fillRect(SNOW_END_X-2500,roadBaseY-9000,(SNOW_FADE_START_X-SNOW_END_X)+5000,18000);
+  ctx.restore();
+}
+
+// Screen snow particles: also kept light
+function drawSnowOverlay(){
+  const p=getSnowProgressByX(tractor.x);if(p<=0)return;
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="white";
+  ctx.globalAlpha = 0.12 + (0.18 * p);  // max ~0.30 — subtle falling snow, road still visible
+  snowParticles.forEach(pt=>{ctx.beginPath();ctx.arc(pt.x,pt.y,pt.s,0,Math.PI*2);ctx.fill();});
+  ctx.restore();
+}
+
+let trafficLightState="RED",lightTimer=0,stopDetectTimer=0;
+let aiVehicles=[];
+const aiColors=["#c00","#eee","#333","#00c","#555"];
+const connectorLength=2528;
+let isLayoutMode=false,draggingLight=null,steeringActive=false;
+const keys={left:false,right:false};
+let lightPositions=JSON.parse(localStorage.getItem('remiSemiLights'))||[
+  {x:intersectionX+(roadWidth+80),y:hwyY-100,               hwy:true, id:0},
+  {x:intersectionX-(roadWidth+80),y:hwyY-100,               hwy:true, id:1},
+  {x:intersectionX+(roadWidth+80),y:hwyY+(roadWidth*2)+100, hwy:true, id:2},
+  {x:intersectionX-(roadWidth+80),y:hwyY+(roadWidth*2)+100, hwy:true, id:3},
+  {x:intersectionX+roadWidth,     y:hwyY+roadWidth,          hwy:false,id:4}
+];
+
+let crashStats={dmgPercent:0,isCrashed:false,cooldown:0};
+function applyCrashPenalty(amount,reason){
+  if(crashStats.isCrashed||crashStats.cooldown>0)return;
+  crashStats.dmgPercent=Math.min(crashStats.dmgPercent+amount,100);
+  crashStats.cooldown=60;
+  document.getElementById("damage").innerText=crashStats.dmgPercent+"%";
+  updateBanner("CRASH ALERT",reason);
+  if(crashStats.dmgPercent>=100)triggerMajorAccident();
+}
+function triggerMajorAccident(){
+  if(towState.pending||towState.active)return;
+  crashStats.isCrashed=true;engineOn=false;tractor.speed=0;
+  touch.up=false;touch.down=false;keys.left=false;keys.right=false;
+  document.getElementById("btnStart").innerText="START";
+  document.getElementById("btnStart").classList.remove("on");
+  document.getElementById("msg-container").style.borderColor="#f00";
+  updateBanner("DISPATCHER (RADIO)","FATAL ACCIDENT. TOW TRUCKS EN ROUTE.");
+  towState.pending=true;towState.timer=300;
+}
+function startTowMission(){
+  towState.pending=false;towState.active=true;
+  towState.trucks=[
+    {x:9000,y:hwyY+roadWidth*0.5,target:"tractor",phase:"toTruck",carrying:false,speed:6},
+    {x:9300,y:hwyY+roadWidth*1.5,target:"trailer",phase:"toTruck",carrying:false,speed:6}
+  ];
+}
+function updateTowMission(){
+  if(towState.pending){if(--towState.timer<=0)startTowMission();return;}
+  if(!towState.active)return;
+  towState.trucks.forEach(t=>{
+    if(t.phase==="toTruck"){
+      t.x-=t.speed;
+      const tx=t.target==="tractor"?tractor.x:activeTrailer.x;
+      if(t.x<=tx+150){t.phase="toYard";t.carrying=true;}
+    }else if(t.phase==="toYard"){
+      if(t.x>towYardInterX)t.x-=t.speed;else t.phase="yardEntry";
+      if(t.target==="tractor"){tractor.x=t.x-160;tractor.y=t.y;tractor.speed=0;}
+      else{activeTrailer.x=t.x-120;activeTrailer.y=t.y;}
+    }else if(t.phase==="yardEntry"){
+      const ty=towYard.y+towYard.h/2;
+      if(t.y>ty)t.y-=t.speed;else if(t.y<ty)t.y+=t.speed;
+      if(Math.abs(t.y-ty)<8)t.phase="parked";
+      if(t.target==="tractor"){tractor.x=t.x-160;tractor.y=t.y;}
+      else{activeTrailer.x=t.x-120;activeTrailer.y=t.y;}
+    }
+  });
+  if(towState.trucks.every(t=>t.phase==="parked")){
+    towState.active=false;
+    updateBanner("DISPATCHER (RADIO)","RECOVERY COMPLETE. UNIT RETURNED TO TOW YARD.");
+  }
+}
+function drawTowTruck(x,y,angle=Math.PI){
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+  ctx.fillStyle="#ffaa00";ctx.fillRect(-28,-12,56,24);
+  ctx.fillStyle="#222";ctx.fillRect(10,-12,18,24);
+  ctx.fillStyle="#000";
+  ctx.fillRect(-20,-16,10,4);ctx.fillRect(-20,12,10,4);
+  ctx.fillRect(8,-16,10,4);ctx.fillRect(8,12,10,4);
+  ctx.restore();
+}
+function checkCrashConditions(){
+  if(!engineOn||crashStats.isCrashed)return;
+  if(crashStats.cooldown>0)crashStats.cooldown--;
+  const aligned=Math.abs(Math.cos(tractor.angle))>0.8;
+  const nearInt=Math.abs(tractor.x-intersectionX)<500;
+  if(tractor.x<0&&tractor.x>-110000&&!nearInt&&aligned){
+    const cL=hwyY+roadWidth;
+    if(Math.abs(tractor.y-cL)<15)applyCrashPenalty(2,"CENTER LINE CROSSING");
+    if(tractor.y<hwyY+15||tractor.y>hwyY+roadWidth*2-15)applyCrashPenalty(2,"OUTSIDE LINE CROSSING");
+  }
+  aiVehicles.forEach((v,idx)=>{
+    const dx=tractor.x-v.x,dy=tractor.y-v.y;
+    if(Math.sqrt(dx*dx+dy*dy)<180){aiVehicles.splice(idx,1);applyCrashPenalty(25,"VEHICLE COLLISION: +25% DMG");}
+  });
+}
+function spawnAI(){
+  if(aiVehicles.length>25)return;
+  const dir=Math.random()>0.5?1:-1,isSemi=Math.random()<0.1,lf=Math.random()>0.5?0.25:0.75;
+  const ly=hwyY+(dir===1?roadWidth*(lf+1):roadWidth*lf);
+  aiVehicles.push({x:dir===1?-65000:15000,y:ly,baseY:ly,type:isSemi?'semi':'car',
+    maxSpeed:8+Math.random()*4,speed:8+Math.random()*4,dir,
+    color:aiColors[Math.floor(Math.random()*aiColors.length)],isPassing:false,passStep:0});
+}
+function drawTrafficLight(light){
+  ctx.save();ctx.translate(light.x,light.y);
+  if(isLayoutMode){ctx.fillStyle="rgba(0,255,255,0.4)";ctx.beginPath();ctx.arc(0,0,80,0,Math.PI*2);ctx.fill();ctx.strokeStyle="white";ctx.lineWidth=5;ctx.stroke();}
+  ctx.fillStyle="#111";ctx.fillRect(-12,-40,24,80);
+  const g=light.hwy?(trafficLightState==="RED"):(trafficLightState==="GREEN_CYCLE");
+  ctx.fillStyle=g?"#050":"#f00";ctx.beginPath();ctx.arc(0,-20,10,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=g?"#0f0":"#500";ctx.beginPath();ctx.arc(0,20,10,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+let lumberStacks=[];
+for(let side=0;side<2;side++){
+  const bx=side===0?-910:350;
+  for(let block=0;block<3;block++){
+    const by=block===0?0:block===1?(240+75)+150:((240+75)*2)+300;
+    for(let row=0;row<3;row++)
+      for(let col=0;col<4;col++)
+        lumberStacks.push({x:siteLocationX+bx+col*140,y:roadBaseY+roadWidth+lumberRoadLength+1100+by+row*80,w:LUMBER_LAND_W,h:LUMBER_LAND_H});
+  }
+}
+
+const loadingZoneLumberYard={x:8373,y:3100,w:roadWidth,h:800};
+const startX=loadingZoneLumberYard.x+loadingZoneLumberYard.w/2;
+const startY=loadingZoneLumberYard.y+loadingZoneLumberYard.h/2;
+const tractor={x:startX,y:startY,w:292.5,h:TRAILER_WIDTH_8_5FT,angle:-Math.PI/2,speed:0,accel:0.12,revAccel:0.18,friction:0.98,steerAngle:0};
+
+const trailerScaleH=(TRAILER_LUMBER_ROWS*LUMBER_LAND_H)+((TRAILER_LUMBER_ROWS-1)*TRAILER_LUMBER_GAP)+TRAILER_PADDING_Y*2;
+const trailerScaleW=(TRAILER_LUMBER_COLS*LUMBER_LAND_W)+((TRAILER_LUMBER_COLS-1)*TRAILER_LUMBER_GAP)+TRAILER_PADDING_X*2;
+let activeTrailer={
+  x:startX-Math.cos(-Math.PI/2)*(HITCH_OFFSET+trailerScaleW/2-TRAILER_FRONT_OFFSET),
+  y:startY-Math.sin(-Math.PI/2)*(HITCH_OFFSET+trailerScaleW/2-TRAILER_FRONT_OFFSET),
+  w:trailerScaleW,h:trailerScaleH,angle:-Math.PI/2
+};
+
+let totalSeconds=0,currentGear=1,engineOn=false,chainsInstalled=false;
+let touch={up:false,down:false};
+let liftsOnTrailer=12,unloadedLifts=[];
+let forklift={x:loadingZone.x+loadingZone.w+150,y:loadingZone.y+400,angle:0,state:'idle',path:[],pathIndex:0,speed:7,carrying:false,mastHeight:0};
+
+function planProfessionalUnload(){
+  const liftIdx=liftsOnTrailer-1,col=liftIdx%TRAILER_LUMBER_COLS,row=Math.floor(liftIdx/TRAILER_LUMBER_COLS);
+  const stackIdx=12-liftsOnTrailer;
+  const lx=-activeTrailer.w/2+TRAILER_PADDING_X+col*(LUMBER_LAND_W+TRAILER_LUMBER_GAP);
+  const ly=-activeTrailer.h/2+TRAILER_PADDING_Y+row*(LUMBER_LAND_H+TRAILER_LUMBER_GAP);
+  const cos=Math.cos(activeTrailer.angle),sin=Math.sin(activeTrailer.angle);
+  const gpX=activeTrailer.x+lx*cos-ly*sin,gpY=activeTrailer.y+lx*sin+ly*cos;
+  const apX=gpX-sin*250,apY=gpY+cos*250;
+  const spX=loadingZone.x+loadingZone.w+120+Math.floor(stackIdx/TRAILER_LUMBER_COLS)*(LUMBER_LAND_W+20);
+  const spY=loadingZone.y+100+(stackIdx%TRAILER_LUMBER_COLS)*(LUMBER_LAND_H+20);
+  const ga=activeTrailer.angle-Math.PI/2;
+  forklift.path=[
+    {x:apX,y:apY,angle:ga,action:'move'},{x:gpX,y:gpY,angle:ga,action:'grab'},
+    {x:apX,y:apY,angle:ga,action:'move'},{x:spX,y:spY,angle:0,action:'stack'},
+    {x:loadingZone.x+loadingZone.w+150,y:loadingZone.y+400,angle:0,action:'reset'}
+  ];
+  forklift.pathIndex=0;forklift.state='moving';
+}
+
+const canvas=document.getElementById("gameCanvas"),ctx=canvas.getContext("2d");
+const padEl=document.getElementById("steering-pad"),ballEl=document.getElementById("steering-wheel");
+const startBtn=document.getElementById("btnStart");
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+window.addEventListener('resize',resize);resize();
+
+function drawCompass(){
+  ctx.save();ctx.fillStyle="rgba(255,255,255,0.4)";ctx.font="bold 150px Arial";ctx.textAlign="center";
+  ctx.fillText("TOP",0,-10000);ctx.fillText("BOTTOM",0,15000);ctx.fillText("LEFT",-20000,0);ctx.fillText("RIGHT",20000,0);ctx.restore();
+}
+function drawGradeSigns(x,y,text){
+  ctx.save();ctx.translate(x,y);ctx.fillStyle="#ffcc00";
+  ctx.beginPath();ctx.moveTo(0,-110);ctx.lineTo(110,0);ctx.lineTo(0,110);ctx.lineTo(-110,0);ctx.closePath();
+  ctx.fill();ctx.strokeStyle="#000";ctx.lineWidth=6;ctx.stroke();
+  ctx.fillStyle="#000";ctx.font="bold 28px Arial";ctx.textAlign="center";ctx.fillText(text,0,10);ctx.restore();
+}
+function drawParkingCar(x,y,color,angle,scale=1){
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+  ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(-24*scale,-14*scale,48*scale,28*scale);
+  ctx.fillStyle="#111";
+  ctx.fillRect(-18*scale,-15*scale,10*scale,5*scale);ctx.fillRect(-18*scale,10*scale,10*scale,5*scale);
+  ctx.fillRect(8*scale,-15*scale,10*scale,5*scale);ctx.fillRect(8*scale,10*scale,10*scale,5*scale);
+  ctx.fillStyle=color;ctx.fillRect(-22*scale,-12*scale,44*scale,24*scale);
+  ctx.fillStyle="rgba(0,0,0,0.6)";ctx.fillRect(-8*scale,-10*scale,18*scale,20*scale);
+  ctx.fillStyle="#fff";ctx.fillRect(20*scale,-10*scale,2*scale,5*scale);ctx.fillRect(20*scale,5*scale,2*scale,5*scale);
+  ctx.restore();
+}
+function drawHardwareBuilding(){
+  const bW=1200,bH=800,bX=destinationYard.x+(destinationYard.w-bW)/2+520,bY=destinationYard.y+200;
+  ctx.save();
+  const g=ctx.createLinearGradient(bX,bY,bX+bW,bY+bH);
+  g.addColorStop(0,"#444");g.addColorStop(0.5,"#666");g.addColorStop(1,"#444");
+  ctx.fillStyle=g;ctx.fillRect(bX,bY,bW,bH);
+  ctx.strokeStyle="rgba(255,255,255,0.1)";ctx.lineWidth=2;
+  for(let i=0;i<bW;i+=20){ctx.beginPath();ctx.moveTo(bX+i,bY);ctx.lineTo(bX+i,bY+bH);ctx.stroke();}
+  ctx.fillStyle="#ffcc00";ctx.font="bold 60px Arial";ctx.textAlign="center";ctx.fillText("BUILDING CENTER",bX+bW/2,bY+bH/2+20);ctx.restore();
+  ["#c00","#eee","#333","#00c","#555"].forEach((c,i)=>drawParkingCar(bX+180+i*220,bY+bH+110,c,-Math.PI/2,2));
+}
+function drawRealisticOffice(x,y,w,h){
+  ctx.save();ctx.shadowBlur=15;ctx.shadowColor="rgba(0,0,0,0.5)";ctx.shadowOffsetY=10;
+  const g=ctx.createLinearGradient(x,y,x+w,y);
+  g.addColorStop(0,"#444");g.addColorStop(0.5,"#666");g.addColorStop(1,"#444");
+  ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+  ctx.strokeStyle="rgba(255,255,255,0.08)";ctx.lineWidth=2;
+  for(let i=0;i<w;i+=15){ctx.beginPath();ctx.moveTo(x+i,y);ctx.lineTo(x+i,y+h);ctx.stroke();}
+  ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(x+50,y+50,w-100,h-100);
+  ctx.fillStyle="#ffcc00";ctx.font="bold 60px Arial";ctx.textAlign="center";ctx.fillText("YARD OFFICE",x+w/2,y+h/2+15);ctx.restore();
+}
+function drawLumberYardAssets(){
+  ctx.save();
+  const offW=800,offH=500,offX=remoteLumberYard.x+remoteLumberYard.w-1000,offY=remoteLumberYard.y+100;
+  drawRealisticOffice(offX,offY,offW,offH);
+  ["#c00","#00c","#333","#eee"].forEach((c,i)=>drawParkingCar(offX+100+i*160,offY+offH+100,c,-Math.PI/2,2));
+  ctx.restore();
+}
+function drawTowYardAssets(){
+  ctx.save();
+  ctx.strokeStyle="#888";ctx.lineWidth=10;ctx.setLineDash([10,5]);ctx.strokeRect(towYard.x,towYard.y,towYard.w,towYard.h);ctx.setLineDash([]);
+  ctx.fillStyle="#4a4a4a";ctx.fillRect(towYard.x+10,towYard.y+10,towYard.w-20,towYard.h-20);
+  const ic=["#555","#440","#044","#404"];
+  for(let i=0;i<12;i++){const r=Math.floor(i/4),c=i%4;drawParkingCar(towYard.x+150+c*230,towYard.y+150+r*300,ic[i%4],0,1.8);}
+  ctx.fillStyle="#ffd700";ctx.font="bold 80px Arial";ctx.textAlign="center";ctx.fillText("TOWING YARD",towYard.x+towYard.w/2,towYard.y+towYard.h/2);
+  ctx.restore();ctx.save();
+  ctx.strokeStyle="#00ff00";ctx.lineWidth=10;ctx.strokeRect(storageYard.x,storageYard.y,storageYard.w,storageYard.h);
+  ctx.fillStyle="#222";ctx.fillRect(storageYard.x+10,storageYard.y+10,storageYard.w-20,storageYard.h-20);
+  ctx.fillStyle="#fff";ctx.font="bold 80px Arial";ctx.textAlign="center";ctx.fillText("STORAGE YARD",storageYard.x+storageYard.w/2,storageYard.y+storageYard.h/2);
+  ctx.restore();
+}
+function drawLoadingZoneText(zone,l1,l2){
+  ctx.save();ctx.fillStyle="#ffd700";ctx.font="bold 32px Arial";ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillText(l1,zone.x+zone.w/2,zone.y+zone.h/2-20);ctx.fillText(l2,zone.x+zone.w/2,zone.y+zone.h/2+20);ctx.restore();
+}
+function drawChainAreaLabel(area,line1,line2,borderColor,textColor){
+  ctx.strokeStyle=borderColor;ctx.lineWidth=6;ctx.strokeRect(area.x,area.y,area.w,area.h);
+  ctx.save();ctx.textAlign="center";ctx.font="bold 60px Arial";ctx.fillStyle=textColor;
+  ctx.fillText(line1,area.x+area.w/2,area.y+area.h/2-10);
+  ctx.font="bold 50px Arial";ctx.fillText(line2,area.x+area.w/2,area.y+area.h/2+50);
+  ctx.restore();
+}
+
+function drawEnvironment(){
+  ctx.fillStyle="#2d613e";ctx.fillRect(-130000,-20000,260000,40000);
+  const curbTopY=destinationYard.y+destinationYard.h-500,curbBottomY=curbTopY+2500;
+  const curbMidX=loadingZone.x+loadingZone.w/2;
+  ctx.fillStyle="#333";
+  ctx.beginPath();
+  ctx.moveTo(curbMidX-roadWidth/2,curbTopY);ctx.lineTo(curbMidX+roadWidth/2,curbTopY);
+  ctx.quadraticCurveTo(curbMidX+roadWidth,curbTopY+200,curbMidX+roadWidth/2,curbTopY+400);
+  ctx.lineTo(curbMidX+roadWidth/2,curbBottomY-400);
+  ctx.quadraticCurveTo(curbMidX+roadWidth,curbBottomY-200,curbMidX+roadWidth/2,curbBottomY);
+  ctx.lineTo(curbMidX-roadWidth/2,curbBottomY);
+  ctx.quadraticCurveTo(curbMidX-roadWidth,curbBottomY-200,curbMidX-roadWidth/2,curbBottomY-400);
+  ctx.lineTo(curbMidX-roadWidth/2,curbTopY+400);
+  ctx.quadraticCurveTo(curbMidX-roadWidth,curbTopY+200,curbMidX-roadWidth/2,curbTopY);
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle="#333";ctx.fillRect(siteLocationX-130,roadBaseY+roadWidth,260,lumberRoadLength+500);
+  ctx.save();ctx.beginPath();ctx.strokeStyle="#333";ctx.lineWidth=roadWidth;ctx.lineCap="round";ctx.lineJoin="round";
+  ctx.moveTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,roadBaseY+roadWidth/2);
+  ctx.lineTo(0,roadBaseY+roadWidth/2);
+  for(let sx=0;sx>=-8500-ROAD_LEFT_EXT;sx-=50)ctx.lineTo(sx,roadBaseY+roadWidth/2+Math.sin(sx*0.003)*350);
+  ctx.stroke();
+  drawGroundSnow();
+  ctx.strokeStyle="#fff";ctx.lineWidth=10;ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,roadBaseY+8);ctx.lineTo(0,roadBaseY+8);
+  for(let sx=0;sx>=-8500-ROAD_LEFT_EXT;sx-=50)ctx.lineTo(sx,roadBaseY+Math.sin(sx*0.003)*350+8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,roadBaseY+roadWidth-8);ctx.lineTo(0,roadBaseY+roadWidth-8);
+  for(let sx=0;sx>=-8500-ROAD_LEFT_EXT;sx-=50)ctx.lineTo(sx,roadBaseY+Math.sin(sx*0.003)*350+roadWidth-8);
+  ctx.stroke();
+  ctx.strokeStyle="#ffd700";ctx.lineWidth=13;ctx.setLineDash([42,38]);ctx.beginPath();
+  ctx.moveTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,roadBaseY+roadWidth/2);ctx.lineTo(0,roadBaseY+roadWidth/2);
+  for(let sx=0;sx>=-8500-ROAD_LEFT_EXT;sx-=50)ctx.lineTo(sx,roadBaseY+roadWidth/2+Math.sin(sx*0.003)*350);
+  ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle="#555";ctx.fillRect(destinationYard.x,destinationYard.y,destinationYard.w,destinationYard.h);
+  ctx.fillStyle="#333";ctx.fillRect(loadingZone.x,destinationYard.y-connectorLength,roadWidth,connectorLength);
+  ctx.fillStyle="#222";ctx.fillRect(-130000,hwyY,130000+MILE_UNITS+ROAD_RIGHT_EXT,roadWidth*2);
+  ctx.strokeStyle="white";ctx.lineWidth=8;
+  ctx.beginPath();
+  ctx.moveTo(-130000,hwyY+10);ctx.lineTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,hwyY+10);
+  ctx.moveTo(-130000,hwyY+roadWidth*2-10);ctx.lineTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,hwyY+roadWidth*2-10);
+  ctx.stroke();
+  ctx.strokeStyle="rgba(255,255,255,0.4)";ctx.setLineDash([40,60]);
+  ctx.beginPath();
+  ctx.moveTo(-130000,hwyY+roadWidth*0.5);ctx.lineTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,hwyY+roadWidth*0.5);
+  ctx.moveTo(-130000,hwyY+roadWidth*1.5);ctx.lineTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,hwyY+roadWidth*1.5);
+  ctx.stroke();
+  ctx.strokeStyle="#ffd700";ctx.lineWidth=10;ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(-130000,hwyY+roadWidth-6);ctx.lineTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,hwyY+roadWidth-6);
+  ctx.moveTo(-130000,hwyY+roadWidth+6);ctx.lineTo(10000+MILE_UNITS+ROAD_RIGHT_EXT,hwyY+roadWidth+6);
+  ctx.stroke();
+  ctx.fillStyle="#333";
+  ctx.fillRect(towYardInterX-roadWidth/2,hwyY-towYardRoadLen,roadWidth,towYardRoadLen);
+  ctx.fillRect(storageYardInterX-roadWidth/2,hwyY+roadWidth*2,roadWidth,500);
+  ctx.beginPath();
+  ctx.moveTo(towYardInterX-roadWidth,hwyY);ctx.lineTo(towYardInterX+roadWidth,hwyY);
+  ctx.lineTo(towYardInterX+roadWidth/2,hwyY+200);ctx.lineTo(towYardInterX-roadWidth/2,hwyY+200);ctx.fill();
+  lightPositions.forEach(l=>drawTrafficLight(l));
+  ctx.save();ctx.translate(destinationYard.x+100,destinationYard.y+destinationYard.h-100);
+  ctx.fillStyle="white";ctx.fillRect(0,0,250,90);ctx.strokeStyle="black";ctx.lineWidth=4;ctx.strokeRect(0,0,250,90);
+  ctx.fillStyle="black";ctx.font="bold 22px Arial";ctx.textAlign="center";ctx.fillText("BUILDING CENTER",125,40);
+  ctx.font="bold 16px Arial";ctx.fillText("ENTRANCE",125,70);ctx.restore();
+  drawHardwareBuilding();
+  drawTowYardAssets();
+  ctx.fillStyle=chainsInstalled?"#2d5a27":"#444";
+  ctx.fillRect(chainUpArea.x,chainUpArea.y,chainUpArea.w,chainUpArea.h);
+  drawChainAreaLabel(chainUpArea,"CHAIN UP","PULL IN HERE","#ffcc00","#ffcc00");
+  ctx.fillStyle=chainsInstalled?"#2d6b6b":"#555";
+  ctx.fillRect(chainOffArea.x,chainOffArea.y,chainOffArea.w,chainOffArea.h);
+  drawChainAreaLabel(chainOffArea,"CHAIN OFF","PULL IN HERE","#00ffff","#00ffff");
+  drawGradeSigns(12000+EXTRA_UPHILL,roadBaseY-140,"MILE 1");
+  drawGradeSigns(7500+EXTRA_UPHILL, roadBaseY-140,"FLAT RUN");
+  drawGradeSigns(5000+EXTRA_UPHILL, roadBaseY-140,"STEEP UP");
+  drawGradeSigns(2000+EXTRA_UPHILL, roadBaseY-140,"STEEP DOWN");
+  ctx.save();ctx.strokeStyle="#ffd700";ctx.lineWidth=10;ctx.setLineDash([20,20]);
+  ctx.strokeRect(loadingZone.x,loadingZone.y,loadingZone.w,loadingZone.h);
+  drawLoadingZoneText(loadingZone,"LOADING","ZONE");
+  ctx.strokeRect(loadingZoneLumberYard.x,loadingZoneLumberYard.y,loadingZoneLumberYard.w,loadingZoneLumberYard.h);
+  drawLoadingZoneText(loadingZoneLumberYard,"LOADING","ZONE");
+  ctx.restore();
+  unloadedLifts.forEach(s=>{
+    ctx.fillStyle="#d2b48c";ctx.fillRect(s.x,s.y,LUMBER_LAND_W,LUMBER_LAND_H);
+    ctx.fillStyle="rgba(0,0,0,0.3)";
+    ctx.fillRect(s.x+LUMBER_LAND_W*0.2,s.y,3,LUMBER_LAND_H);
+    ctx.fillRect(s.x+LUMBER_LAND_W*0.8,s.y,3,LUMBER_LAND_H);
+  });
+  ctx.restore();
+}
+
+function drawTruckDetailed(x,y,angle,color="#800000"){
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+  const s=2.25;
+  ctx.fillStyle="#111";ctx.fillRect((-130*s)/2,(-30*s)/6,(130*s)-(50*s),(30*s)/3);ctx.fillRect(0,(-30*s)/2,60*s,30*s);
+  ctx.fillStyle="#000";
+  ctx.fillRect(-62*s,-12*s,12*s,6*s);ctx.fillRect(-62*s,6*s,12*s,6*s);
+  ctx.fillRect(-45*s,-12*s,12*s,6*s);ctx.fillRect(-45*s,6*s,12*s,6*s);
+  ctx.fillRect(40*s,(-30*s)/2-2,12*s,5*s);ctx.fillRect(40*s,(30*s)/2-3,12*s,5*s);
+  ctx.fillStyle=color;ctx.fillRect(-10*s,(-30*s)/2,40*s,30*s);ctx.fillRect(30*s,(-30*s)/2+4*s,30*s,(30*s)-8*s);
+  ctx.fillStyle="#FFD700";
+  for(let i=0;i<4;i++){const ly=(-30*s)/2+4*s+i*6.5*s;ctx.fillRect(27*s,ly,3*s,3*s);}
+  ctx.fillStyle="#777";ctx.fillRect(-12*s,(-30*s)/2-5*s,6*s,6*s);ctx.fillRect(-12*s,(30*s)/2-1*s,6*s,6*s);
+  ctx.fillStyle="#aaa";ctx.fillRect(30*s,(-30*s)/2-4*s,4*s,5*s);ctx.fillRect(30*s,(30*s)/2-1*s,4*s,5*s);
+  const bg=ctx.createLinearGradient(58*s,0,65*s,0);
+  bg.addColorStop(0,"#888");bg.addColorStop(0.5,"#eee");bg.addColorStop(1,"#999");
+  ctx.fillStyle=bg;ctx.fillRect(58*s,(-30*s)/2-1,5*s,30*s+2);
+  ctx.restore();
+}
+function drawTrailerDetailed(x,y,angle,hasLumber=true){
+  const tw=activeTrailer.w,th=activeTrailer.h;
+  const loadW=(TRAILER_LUMBER_COLS*LUMBER_LAND_W)+(TRAILER_LUMBER_COLS-1)*TRAILER_LUMBER_GAP;
+  const lx0=-tw/2+TRAILER_PADDING_X,ly0=-th/2+TRAILER_PADDING_Y;
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+  ctx.fillStyle="rgba(0,0,0,0.5)";ctx.fillRect(-tw/2+10,-th/2+10,tw,th);
+  for(let i=-th/2;i<th/2;i+=6){
+    ctx.fillStyle=(Math.floor(i/6)%2===0)?"#5d4037":"#4a352f";
+    ctx.fillRect(-tw/2,i,tw,6);ctx.strokeStyle="rgba(0,0,0,0.1)";ctx.lineWidth=0.5;ctx.strokeRect(-tw/2,i,tw,6);
+  }
+  ctx.fillStyle="#b0b0b0";ctx.fillRect(-tw/2,-th/2,tw,5);ctx.fillRect(-tw/2,th/2-5,tw,5);
+  for(let i=-tw/2;i<tw/2;i+=20){
+    ctx.fillStyle=(Math.floor(i/20)%2===0)?"#d32f2f":"#fff";
+    ctx.fillRect(i,-tw/2+1,10,2);ctx.fillRect(i,th/2-3,10,2);
+  }
+  if(hasLumber){
+    ctx.fillStyle="#e3c5a8";
+    for(let i=0;i<liftsOnTrailer;i++){
+      const row=Math.floor(i/TRAILER_LUMBER_COLS),col=i%TRAILER_LUMBER_COLS;
+      const lx=lx0+col*(LUMBER_LAND_W+TRAILER_LUMBER_GAP),ly=ly0+row*(LUMBER_LAND_H+TRAILER_LUMBER_GAP);
+      ctx.fillRect(lx,ly,LUMBER_LAND_W,LUMBER_LAND_H);
+      const s1=lx+LUMBER_LAND_W*TRAILER_STRAP_POS,s2=lx+LUMBER_LAND_W*(1-TRAILER_STRAP_POS);
+      ctx.strokeStyle=TRAILER_STRAP_COLOR;ctx.lineWidth=TRAILER_STRAP_WIDTH;
+      ctx.beginPath();ctx.moveTo(s1,ly);ctx.lineTo(s1,ly+LUMBER_LAND_H);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(s2,ly);ctx.lineTo(s2,ly+LUMBER_LAND_H);ctx.stroke();
+    }
+    ctx.strokeStyle="#ffd700";ctx.lineWidth=3;
+    for(let i=lx0+LUMBER_LAND_W;i<lx0+loadW;i+=(LUMBER_LAND_W+TRAILER_LUMBER_GAP)){
+      ctx.beginPath();ctx.moveTo(i,th/2-5);ctx.lineTo(i,-th/2+5);ctx.stroke();
+    }
+  }
+  ctx.fillStyle="#333";ctx.fillRect(tw/2-6,-th/2,6,th);
+  ctx.fillStyle="#000";ctx.fillRect(-tw/2+40,-th/2-10,60,10);ctx.fillRect(-tw/2+40,th/2,60,10);
+  ctx.restore();
+}
+function drawLumberLift(x,y,w,h){
+  ctx.save();ctx.translate(x,y);
+  ctx.fillStyle="#e3c5a8";ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle="#8b4513";ctx.lineWidth=2;ctx.strokeRect(0,0,w,h);
+  ctx.fillStyle="#111";ctx.fillRect(w*0.2,0,3,h);ctx.fillRect(w*0.8,0,3,h);
+  ctx.restore();
+}
+function drawToyotaForklift(x,y,angle,carrying){
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+  ctx.fillStyle="#FF6600";ctx.fillRect(-45,-25,80,50);
+  ctx.fillStyle="#333";ctx.fillRect(25,-25,15,50);
+  ctx.strokeStyle="#111";ctx.lineWidth=3;ctx.strokeRect(-20,-20,35,40);
+  ctx.fillStyle="rgba(0,0,0,0.2)";ctx.fillRect(-20,-20,35,40);
+  ctx.fillStyle="#222";ctx.fillRect(-48,-28,6,56);
+  ctx.save();ctx.translate(0,-forklift.mastHeight);
+  ctx.fillStyle="#444";ctx.fillRect(-55,-20,8,40);ctx.fillRect(-85,-18,30,6);ctx.fillRect(-85,12,30,6);
+  if(carrying){ctx.fillStyle="#d2b48c";ctx.fillRect(-85,-14,28,28);ctx.strokeStyle="#8b4513";ctx.lineWidth=1;ctx.strokeRect(-85,-14,28,28);}
+  ctx.restore();
+  ctx.fillStyle="#000";
+  ctx.beginPath();ctx.arc(-25,-28,10,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(-25, 28,10,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc( 30,-22, 8,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc( 30, 22, 8,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+window.installChains=function(){
+  const inUp =tractor.x>chainUpArea.x  &&tractor.x<chainUpArea.x +chainUpArea.w  &&tractor.y>chainUpArea.y  &&tractor.y<chainUpArea.y +chainUpArea.h;
+  const inOff=tractor.x>chainOffArea.x &&tractor.x<chainOffArea.x+chainOffArea.w &&tractor.y>chainOffArea.y &&tractor.y<chainOffArea.y+chainOffArea.h;
+  if(!inUp&&!inOff)return;
+  chainsInstalled=!chainsInstalled;
+  document.getElementById("chainPop").style.display="none";
+};
+
+function updateBanner(header,text){
+  document.getElementById("msg-header").innerText=header;
+  document.getElementById("msg").innerText=text;
+}
+
+function updateDriverGuidance(){
+  const gps=document.getElementById("gps-screen");
+  const tx=tractor.x, ty=tractor.y;
+  const inSnow  = getSnowProgressByX(tx)>0;
+  const inCU    = tx>chainUpArea.x  && tx<chainUpArea.x+chainUpArea.w   && ty>chainUpArea.y  && ty<chainUpArea.y+chainUpArea.h;
+  const inCOff  = tx>chainOffArea.x && tx<chainOffArea.x+chainOffArea.w && ty>chainOffArea.y && ty<chainOffArea.y+chainOffArea.h;
+  const inWindy = tx<=WINDY_START_X && tx>=WINDY_END_X;
+  const onHwy   = ty>hwyY-100 && ty<hwyY+roadWidth*2+100 && tx<200;
+  const onConnector = Math.abs(tx-intersectionX)<roadWidth*1.5 && ty<hwyY;
+  const onSpur  = Math.abs(tx-siteLocationX)<400 && ty > roadBaseY;
+
+  let nav="STRAIGHT", banner="CONTINUE STRAIGHT.";
+
+  if(trafficLightState==="RED"&&Math.abs(tx-intersectionX)<500&&ty>hwyY+roadWidth*2){
+    nav="STOP"; banner="RED LIGHT — FULL STOP.";
+  } else if(trafficLightState==="GREEN_CYCLE"&&Math.abs(tx-intersectionX)<700){
+    nav="PROCEED"; banner="SIGNAL GREEN. PROCEED WITH CAUTION.";
+  } else if(inCU&&!chainsInstalled){
+    nav="CHAIN UP"; banner="PULL IN AND INSTALL CHAINS BEFORE THE GRADE.";
+  } else if(inCU&&chainsInstalled){
+    nav="STRAIGHT"; banner="CHAINS ON. EXIT AND CONTINUE.";
+  } else if(inCOff&&chainsInstalled){
+    nav="CHAIN OFF"; banner="PULL IN AND REMOVE CHAINS HERE.";
+  } else if(inCOff&&!chainsInstalled){
+    nav="STRAIGHT"; banner="CHAIN-OFF AREA. CONTINUE STRAIGHT.";
+  } else if(inWindy){
+    nav="WINDY ROADS"; banner="WINDY ROADS. SLOW DOWN AND HOLD YOUR LANE.";
+  } else if(onHwy&&tx<WP_DEST_TURN&&tx>WP_DEST_ON){
+    nav="TURN LEFT"; banner="TURN LEFT NOW INTO DELIVERY ROAD.";
+  } else if(onHwy&&tx<=WP_DEST_WARN&&tx>=WP_DEST_TURN){
+    nav="LEFT TURN AHEAD"; banner="LEFT TURN AHEAD TO DELIVERY ROAD.";
+  } else if(onConnector&&liftsOnTrailer>0){
+    nav="LOADING ZONE"; banner="PROCEED TO LOADING ZONE AHEAD.";
+  } else if(onHwy){
+    nav="HWY 1 — STRAIGHT"; banner="ON HIGHWAY 1. CONTINUE STRAIGHT WEST.";
+  } else if(tx>WP_MTN_HWY_TURN&&tx<=WP_MTN_HWY_WARN){
+    nav="TURN LEFT"; banner="TURN LEFT NOW ONTO HIGHWAY 1.";
+  } else if(tx>WP_MTN_HWY_WARN&&tx<=WINDY_END_X+200){
+    nav="LEFT TURN AHEAD"; banner="LEFT TURN AHEAD ONTO HIGHWAY 1.";
+  } else if(tx<=chainOffArea.x&&tx>WINDY_START_X){
+    nav="STRAIGHT"; banner="BOTTOM OF HILL. WINDY ROADS AHEAD.";
+  } else if(inSnow&&!chainsInstalled){
+    nav="STRAIGHT"; banner="ICY GRADE — NO CHAINS. SPEED REDUCED.";
+  } else if(inSnow&&chainsInstalled){
+    nav="STRAIGHT"; banner="CHAINS ON. PROCEED WITH CAUTION.";
+  } else if(tx<WP_CHAINUP_WARN&&tx>chainUpArea.x+chainUpArea.w&&!chainsInstalled){
+    nav="CHAIN UP AHEAD"; banner="CHAIN-UP AREA AHEAD. PULL IN TO INSTALL CHAINS.";
+  } else if(onSpur&&ty<=WP_SPUR_TURN_Y){
+    nav="TURN LEFT"; banner="TURN LEFT NOW ONTO MOUNTAIN ROAD.";
+  } else if(onSpur&&ty<=WP_SPUR_WARN_Y){
+    nav="LEFT TURN AHEAD"; banner="LEFT TURN AHEAD ONTO MOUNTAIN ROAD.";
+  } else if(onSpur){
+    nav="STRAIGHT"; banner="PROCEED STRAIGHT AHEAD ON SPUR ROAD.";
+  } else if(liftsOnTrailer<=0){
+    nav="STRAIGHT"; banner="DELIVERY COMPLETE. PROCEED TO STORAGE YARD.";
+  }
+
+  gps.innerText=nav;
+  updateBanner("DISPATCHER (RADIO)",banner);
+}
+
+function update(){
+  updateTowMission();
+  checkCrashConditions();
+  updateSnow();
+
+  const isAtSideStop=()=>tractor.y>hwyY+roadWidth*2&&tractor.y<hwyY+roadWidth*2+600&&Math.abs(tractor.x-intersectionX)<300;
+  if(trafficLightState==="RED"){
+    if(isAtSideStop()&&Math.abs(tractor.speed)<0.1){if(++stopDetectTimer>=300){trafficLightState="GREEN_CYCLE";lightTimer=600;stopDetectTimer=0;}}
+    else if(isAtSideStop())stopDetectTimer=0;
+  }else if(trafficLightState==="GREEN_CYCLE"){if(--lightTimer<=0)trafficLightState="RED";}
+
+  if(Math.random()<0.03)spawnAI();
+  aiVehicles.forEach((v,idx)=>{
+    const stopLine=v.dir===1?intersectionX-950:intersectionX+950;
+    const hwyG=trafficLightState==="RED";
+    const atStop=(v.dir===1&&v.x>stopLine-250&&v.x<stopLine)||(v.dir===-1&&v.x<stopLine+250&&v.x>stopLine);
+    let tgt=v.maxSpeed;if(!hwyG&&atStop)tgt=0;
+    const pd=Math.abs(v.x-tractor.x),sl=Math.abs(v.y-tractor.y)<100||Math.abs(v.y-activeTrailer.y)<100;
+    const iF=(v.dir===1&&tractor.x>v.x)||(v.dir===-1&&tractor.x<v.x);
+    if(tgt>0&&sl&&iF&&pd<1200){
+      if(!v.isPassing&&v.maxSpeed>Math.abs(tractor.speed)+2){const oc=aiVehicles.some(o=>o.dir!==v.dir&&Math.abs(o.x-v.x)<4000);if(!oc){v.isPassing=true;v.passStep=0;}else tgt=Math.abs(tractor.speed);}
+      else if(!v.isPassing)tgt=Math.abs(tractor.speed);
+    }
+    const obs=aiVehicles.find(o=>o!==v&&o.dir===v.dir&&((v.dir===1&&o.x>v.x&&o.x<v.x+1000)||(v.dir===-1&&o.x<v.x&&o.x>v.x-1000))&&Math.abs(o.y-v.y)<60);
+    if(obs&&!v.isPassing)tgt=Math.min(tgt,obs.speed);
+    if(v.isPassing){
+      v.speed=v.maxSpeed+4;
+      const pY=(v.dir===1)?hwyY+roadWidth*1.25:hwyY+roadWidth*0.75;
+      if(v.passStep===0){v.y+=(pY-v.y)*0.05;if(Math.abs(v.y-pY)<5)v.passStep=1;}
+      else if(v.passStep===1){const fe=(v.dir===1)?(v.x>tractor.x+2200):(v.x<tractor.x-2200);if(fe&&!obs)v.passStep=2;}
+      else if(v.passStep===2){v.y+=(v.baseY-v.y)*0.05;const hc=(v.dir===1)?(v.x>tractor.x+2600):(v.x<tractor.x-2600);if(Math.abs(v.y-v.baseY)<5&&hc){v.isPassing=false;v.y=v.baseY;}}
+    }
+    if(v.speed>tgt)v.speed*=0.85;else if(v.speed<tgt)v.speed+=0.2;
+    v.x+=v.speed*v.dir;if(v.x>20000||v.x<-130000)aiVehicles.splice(idx,1);
+  });
+
+  if(engineOn&&!towState.active&&!towState.pending){
+    const inSnow=getSnowProgressByX(tractor.x)>0;
+    const inCU  =tractor.x>chainUpArea.x  &&tractor.x<chainUpArea.x+chainUpArea.w   &&tractor.y>chainUpArea.y  &&tractor.y<chainUpArea.y+chainUpArea.h;
+    const inCOff=tractor.x>chainOffArea.x &&tractor.x<chainOffArea.x+chainOffArea.w &&tractor.y>chainOffArea.y &&tractor.y<chainOffArea.y+chainOffArea.h;
+
+    document.getElementById("chainPop").style.display=((inCU&&!chainsInstalled)||(inCOff&&chainsInstalled))?"block":"none";
+
+    if(!steeringActive){
+      if(keys.left)tractor.steerAngle=Math.max(-0.6,tractor.steerAngle-0.03);
+      else if(keys.right)tractor.steerAngle=Math.min(0.6,tractor.steerAngle+0.03);
+      else{tractor.steerAngle+=(0-tractor.steerAngle)*0.12;if(Math.abs(tractor.steerAngle)<0.001)tractor.steerAngle=0;}
+      ballEl.style.left=(50+(tractor.steerAngle/0.6)*40)+"%";
+    }
+
+    const maxSpeed=currentGear*4.0;
+    if(touch.up){if(tractor.speed<maxSpeed)tractor.speed+=tractor.accel;}
+    else if(touch.down){if(tractor.speed>-3.0)tractor.speed-=tractor.revAccel;}
+    else tractor.speed*=0.95;
+
+    // FIX 2: Speed penalty ONLY after (west/left of) chain-up area — not before it
+    const pastChainUp = tractor.x < chainUpArea.x;
+    const applyIcePenalty = inSnow && !chainsInstalled && pastChainUp;
+    tractor.speed *= applyIcePenalty ? 0.90 : tractor.friction;
+
+    tractor.angle+=(tractor.speed/135)*Math.tan(tractor.steerAngle);
+    tractor.x+=Math.cos(tractor.angle)*tractor.speed;
+    tractor.y+=Math.sin(tractor.angle)*tractor.speed;
+
+    const dX=tractor.x-dropOffX,dY=tractor.y-dropOffY;
+    document.getElementById("miles").innerText=(Math.sqrt(dX*dX+dY*dY)/2500).toFixed(1);
+
+    const pX=tractor.x-Math.cos(tractor.angle)*HITCH_OFFSET,pY=tractor.y-Math.sin(tractor.angle)*HITCH_OFFSET;
+    const ddx=pX-activeTrailer.x,ddy=pY-activeTrailer.y;
+    activeTrailer.angle=Math.atan2(ddy,ddx);
+    activeTrailer.x=pX-Math.cos(activeTrailer.angle)*(activeTrailer.w/2-TRAILER_FRONT_OFFSET);
+    activeTrailer.y=pY-Math.sin(activeTrailer.angle)*(activeTrailer.w/2-TRAILER_FRONT_OFFSET);
+
+    const tiz=activeTrailer.x>loadingZone.x&&activeTrailer.x<loadingZone.x+loadingZone.w&&activeTrailer.y>loadingZone.y&&activeTrailer.y<loadingZone.y+loadingZone.h;
+    if(tiz&&Math.abs(tractor.speed)<0.1&&liftsOnTrailer>0&&forklift.state==='idle')planProfessionalUnload();
+
+    if(forklift.state!=='idle'){
+      const ft=forklift.path[forklift.pathIndex];
+      const fDx=ft.x-forklift.x,fDy=ft.y-forklift.y,fD=Math.sqrt(fDx*fDx+fDy*fDy);
+      if(fD>5){forklift.x+=fDx/fD*forklift.speed;forklift.y+=fDy/fD*forklift.speed;forklift.angle+=(ft.angle-forklift.angle)*0.1;}
+      else{
+        if(ft.action==='grab'){liftsOnTrailer--;forklift.carrying=true;forklift.mastHeight=35;}
+        if(ft.action==='stack'){unloadedLifts.push({x:forklift.x,y:forklift.y});forklift.carrying=false;forklift.mastHeight=0;}
+        if(++forklift.pathIndex>=forklift.path.length)forklift.state='idle';
+      }
+    }
+  }
+  updateDriverGuidance();
+}
+
+let currentZoom=0.35;
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width/2,canvas.height/2);
+  ctx.rotate(-tractor.angle-Math.PI/2);
+  ctx.scale(currentZoom,currentZoom);
+  ctx.translate(-tractor.x,-tractor.y);
+  drawEnvironment();
+  drawLumberYardAssets();
+  drawCompass();
+  lumberStacks.forEach(s=>drawLumberLift(s.x,s.y,s.w,s.h));
+  aiVehicles.forEach(v=>{
+    if(v.type==='car')drawParkingCar(v.x,v.y,v.color,v.dir===1?0:Math.PI,2.2);
+    else{drawTruckDetailed(v.x,v.y,v.dir===1?0:Math.PI,v.color);drawTrailerDetailed(v.x-400*v.dir,v.y,v.dir===1?0:Math.PI,true);}
+  });
+  if(towState.trucks.length)towState.trucks.forEach(t=>drawTowTruck(t.x,t.y,Math.PI));
+  drawTrailerDetailed(activeTrailer.x,activeTrailer.y,activeTrailer.angle,liftsOnTrailer>0);
+  drawTruckDetailed(tractor.x,tractor.y,tractor.angle);
+  drawToyotaForklift(forklift.x,forklift.y,forklift.angle,forklift.carrying);
+  ctx.restore();
+  drawSnowOverlay();
+  update();
+  requestAnimationFrame(draw);
+}
+
+canvas.addEventListener('pointerdown',e=>{
+  if(!isLayoutMode)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left-canvas.width/2)/currentZoom,my=(e.clientY-rect.top-canvas.height/2)/currentZoom;
+  const cos=Math.cos(tractor.angle+Math.PI/2),sin=Math.sin(tractor.angle+Math.PI/2);
+  const wx=mx*cos-my*sin+tractor.x,wy=mx*sin+my*cos+tractor.y;
+  draggingLight=lightPositions.find(l=>Math.hypot(l.x-wx,l.y-wy)<120);
+});
+canvas.addEventListener('pointermove',e=>{
+  if(!isLayoutMode||!draggingLight)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left-canvas.width/2)/currentZoom,my=(e.clientY-rect.top-canvas.height/2)/currentZoom;
+  const cos=Math.cos(tractor.angle+Math.PI/2),sin=Math.sin(tractor.angle+Math.PI/2);
+  draggingLight.x=mx*cos-my*sin+tractor.x;draggingLight.y=mx*sin+my*cos+tractor.y;
+});
+canvas.addEventListener('pointerup',()=>draggingLight=null);
+
+function processSteering(e){
+  const rect=padEl.getBoundingClientRect();
+  const sRaw=Math.max(-1,Math.min(1,(e.clientX-(rect.left+rect.width/2))/(rect.width/2)));
+  tractor.steerAngle=sRaw*0.6;ballEl.style.left=(50+sRaw*40)+"%";
+}
+padEl.addEventListener('pointerdown',e=>{e.preventDefault();steeringActive=true;padEl.setPointerCapture(e.pointerId);processSteering(e);});
+padEl.addEventListener('pointermove',e=>{if(padEl.hasPointerCapture(e.pointerId))processSteering(e);});
+padEl.addEventListener('pointerup',e=>{e.preventDefault();steeringActive=false;ballEl.style.left="50%";});
+
+document.getElementById("btnLayout").onclick=()=>{
+  isLayoutMode=!isLayoutMode;
+  const btn=document.getElementById("btnLayout");
+  if(isLayoutMode){btn.innerText="SAVE";btn.style.background="#0f0";updateBanner("Layout Mode","DRAG LIGHTS TO CALIBRATE.");}
+  else{btn.innerText="LAYOUT";btn.style.background="rgba(200,100,0,0.8)";localStorage.setItem('remiSemiLights',JSON.stringify(lightPositions));updateBanner("System","POSITIONS SAVED.");}
+};
+startBtn.onclick=()=>{
+  if(crashStats.isCrashed){updateBanner("ERROR","VEHICLE TOTALED. RESTART REQUIRED.");return;}
+  engineOn=!engineOn;startBtn.innerText=engineOn?"STOP":"START";startBtn.classList.toggle("on");
+};
+document.getElementById("btnView").onclick=()=>{currentZoom=currentZoom===0.35?0.15:0.35;};
+document.getElementById("btnSkip").onclick=()=>{
+  if(crashStats.isCrashed)return;
+  engineOn=true;startBtn.classList.add("on");startBtn.innerText="STOP";tractor.speed=0;
+  tractor.x=intersectionX;tractor.y=hwyY+roadWidth*2+450;tractor.angle=-Math.PI/2;
+  activeTrailer.angle=tractor.angle;
+  activeTrailer.x=tractor.x-Math.cos(tractor.angle)*(HITCH_OFFSET+activeTrailer.w/2-TRAILER_FRONT_OFFSET);
+  activeTrailer.y=tractor.y-Math.sin(tractor.angle)*(HITCH_OFFSET+activeTrailer.w/2-TRAILER_FRONT_OFFSET);
+};
+
+const upBtn=document.getElementById("btnUp"),downBtn=document.getElementById("btnDown"),shiftBtn=document.getElementById("btnShift");
+upBtn.onpointerdown=e=>{e.preventDefault();upBtn.setPointerCapture(e.pointerId);touch.up=true;};
+upBtn.onpointerup=e=>{e.preventDefault();touch.up=false;};
+downBtn.onpointerdown=e=>{e.preventDefault();downBtn.setPointerCapture(e.pointerId);touch.down=true;};
+downBtn.onpointerup=e=>{e.preventDefault();touch.down=false;};
+shiftBtn.onpointerdown=e=>{e.preventDefault();currentGear=currentGear%3+1;document.getElementById("gearDisplay").innerText=currentGear;};
+
+window.addEventListener('keydown',e=>{
+  if(crashStats.isCrashed||towState.pending||towState.active)return;
+  if(e.key==='ArrowUp'||e.key==='w')touch.up=true;
+  if(e.key==='ArrowDown'||e.key==='s')touch.down=true;
+  if(e.key==='ArrowLeft'||e.key==='a')keys.left=true;
+  if(e.key==='ArrowRight'||e.key==='d')keys.right=true;
+});
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowUp'||e.key==='w')touch.up=false;
+  if(e.key==='ArrowDown'||e.key==='s')touch.down=false;
+  if(e.key==='ArrowLeft'||e.key==='a')keys.left=false;
+  if(e.key==='ArrowRight'||e.key==='d')keys.right=false;
+});
+
+draw();
+setInterval(()=>{
+  if(engineOn&&!towState.active)totalSeconds++;
+  document.getElementById("timer").innerText=String(Math.floor(totalSeconds/60)).padStart(2,'0')+":"+String(totalSeconds%60).padStart(2,'0');
+},1000);
+</script>
+</body>
+</html>
